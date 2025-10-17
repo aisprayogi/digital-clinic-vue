@@ -5,6 +5,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Login";
+import AdminDashboard from "./pages/AdminDashboard";
+import DoctorDashboard from "./pages/DoctorDashboard";
+import PatientRegistration from "./pages/PatientRegistration";
+import PatientList from "./pages/PatientList";
+import MedicalRecord from "./pages/MedicalRecord";
 
 const queryClient = new QueryClient();
 
@@ -15,7 +21,12 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<Login />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/doctor" element={<DoctorDashboard />} />
+          <Route path="/patients" element={<PatientList />} />
+          <Route path="/patient-register" element={<PatientRegistration />} />
+          <Route path="/medical-record/:patientId" element={<MedicalRecord />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
