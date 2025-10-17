@@ -11,6 +11,8 @@ import DoctorDashboard from "./pages/DoctorDashboard";
 import PatientRegistration from "./pages/PatientRegistration";
 import PatientList from "./pages/PatientList";
 import MedicalRecord from "./pages/MedicalRecord";
+import POS from "./pages/POS";
+import StockManagement from "./pages/StockManagement";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +29,8 @@ const App = () => (
           <Route path="/patients" element={<PatientList />} />
           <Route path="/patient-register" element={<PatientRegistration />} />
           <Route path="/medical-record/:patientId" element={<MedicalRecord />} />
+          <Route path="/pos" element={<POS />} />
+          <Route path="/stock" element={<StockManagement />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

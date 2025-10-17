@@ -59,6 +59,22 @@ export function Navbar({ userRole, userName = "User" }: NavbarProps) {
                     Registrasi
                   </Button>
                 </Link>
+                <Link to="/pos">
+                  <Button
+                    variant={location.pathname === "/pos" ? "default" : "ghost"}
+                    size="sm"
+                  >
+                    Kasir
+                  </Button>
+                </Link>
+                <Link to="/stock">
+                  <Button
+                    variant={location.pathname === "/stock" ? "default" : "ghost"}
+                    size="sm"
+                  >
+                    Stok Obat
+                  </Button>
+                </Link>
               </div>
             )}
 
