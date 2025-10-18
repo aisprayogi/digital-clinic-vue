@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Calendar, User, FileText } from "lucide-react";
+import { ArrowLeft, Save, Calendar, User, FileText, Upload, X, Image as ImageIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function MedicalRecord() {
@@ -17,6 +17,7 @@ export default function MedicalRecord() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
 
   // Mock patient data
   const patient = {
@@ -36,7 +37,8 @@ export default function MedicalRecord() {
       complaint: "Demam dan batuk",
       diagnosis: "ISPA (Infeksi Saluran Pernapasan Akut)",
       prescription: "Paracetamol 500mg 3x1, Amoxicillin 500mg 3x1",
-      doctor: "Dr. Sarah Amelia"
+      doctor: "Dr. Sarah Amelia",
+      photos: ["https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400", "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=400"]
     },
     {
       id: 2,
@@ -44,9 +46,31 @@ export default function MedicalRecord() {
       complaint: "Sakit kepala",
       diagnosis: "Tension headache",
       prescription: "Paracetamol 500mg bila perlu",
-      doctor: "Dr. Budi Santoso"
+      doctor: "Dr. Budi Santoso",
+      photos: []
     },
   ];
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newPhotos: string[] = [];
+      Array.from(files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newPhotos.push(reader.result as string);
+          if (newPhotos.length === files.length) {
+            setUploadedPhotos([...uploadedPhotos, ...newPhotos]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setUploadedPhotos(uploadedPhotos.filter((_, i) => i !== index));
+  };
 
   const handleSave = () => {
     setLoading(true);
@@ -228,6 +252,56 @@ export default function MedicalRecord() {
                       />
                     </div>
 
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <Label>Foto Rujukan (Opsional)</Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Upload foto kondisi pasien sebagai dokumentasi medis
+                      </p>
+                      
+                      {uploadedPhotos.length > 0 && (
+                        <div className="grid grid-cols-3 gap-3 mb-3">
+                          {uploadedPhotos.map((photo, index) => (
+                            <div key={index} className="relative group">
+                              <img 
+                                src={photo} 
+                                alt={`Upload ${index + 1}`}
+                                className="w-full h-24 object-cover rounded-lg border"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => removePhoto(index)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <label className="cursor-pointer">
+                        <div className="border-2 border-dashed rounded-lg p-6 hover:border-primary transition-colors text-center">
+                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">
+                            Klik untuk upload foto (maks. 5 foto)
+                          </p>
+                        </div>
+                        <Input
+                          id="photos"
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={handlePhotoUpload}
+                          disabled={uploadedPhotos.length >= 5}
+                        />
+                      </label>
+                    </div>
+
                     <div className="flex gap-4 pt-4">
                       <Button 
                         variant="outline" 
@@ -280,6 +354,25 @@ export default function MedicalRecord() {
                           <p className="text-sm font-semibold text-muted-foreground mb-1">Resep:</p>
                           <p className="text-sm">{record.prescription}</p>
                         </div>
+                        {record.photos && record.photos.length > 0 && (
+                          <div>
+                            <p className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+                              <ImageIcon className="h-4 w-4" />
+                              Foto Rujukan:
+                            </p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {record.photos.map((photo, idx) => (
+                                <img 
+                                  key={idx}
+                                  src={photo} 
+                                  alt={`Rujukan ${idx + 1}`}
+                                  className="w-full h-20 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => window.open(photo, '_blank')}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}

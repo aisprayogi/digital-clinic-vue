@@ -26,6 +26,8 @@ export default function POS() {
   const [selectedPatient, setSelectedPatient] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
   const [amountPaid, setAmountPaid] = useState("");
+  const [serviceSearch, setServiceSearch] = useState("");
+  const [medicineSearch, setMedicineSearch] = useState("");
 
   // Sample data
   const services = [
@@ -47,27 +49,46 @@ export default function POS() {
     if (!service) return;
 
     setBillItems([...billItems, {
-      id: `item-${Date.now()}`,
+      id: `item-${Date.now()}-${Math.random()}`,
       name: service.name,
       type: "service",
       price: service.price,
       quantity: 1,
       total: service.price
     }]);
+
+    toast({
+      title: "Item ditambahkan",
+      description: `${service.name} ditambahkan ke keranjang`,
+    });
   };
 
-  const addMedicine = (medicineId: string, qty: number) => {
+  const addMedicine = (medicineId: string, qty: number = 1) => {
     const medicine = medicines.find(m => m.id === medicineId);
     if (!medicine) return;
 
+    if (qty > medicine.stock) {
+      toast({
+        title: "Stok tidak cukup",
+        description: `Stok ${medicine.name} hanya tersedia ${medicine.stock}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     setBillItems([...billItems, {
-      id: `item-${Date.now()}`,
+      id: `item-${Date.now()}-${Math.random()}`,
       name: medicine.name,
       type: "medicine",
       price: medicine.price,
       quantity: qty,
       total: medicine.price * qty
     }]);
+
+    toast({
+      title: "Item ditambahkan",
+      description: `${medicine.name} (${qty}x) ditambahkan ke keranjang`,
+    });
   };
 
   const removeItem = (itemId: string) => {
@@ -135,6 +156,14 @@ export default function POS() {
     }).format(amount);
   };
 
+  const filteredServices = services.filter(s => 
+    s.name.toLowerCase().includes(serviceSearch.toLowerCase())
+  );
+
+  const filteredMedicines = medicines.filter(m => 
+    m.name.toLowerCase().includes(medicineSearch.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar userRole="admin" userName="Admin Klinik" />
@@ -177,13 +206,22 @@ export default function POS() {
               <CardHeader>
                 <CardTitle className="text-lg">Tambah Layanan</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-3">
-                  {services.map((service) => (
+              <CardContent className="space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari layanan..."
+                    value={serviceSearch}
+                    onChange={(e) => setServiceSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
+                  {filteredServices.map((service) => (
                     <Button
                       key={service.id}
                       variant="outline"
-                      className="justify-start h-auto p-4"
+                      className="justify-start h-auto p-4 hover:bg-primary/10 active:scale-95 transition-all touch-manipulation"
                       onClick={() => addService(service.id)}
                     >
                       <div className="text-left w-full">
@@ -201,45 +239,61 @@ export default function POS() {
               <CardHeader>
                 <CardTitle className="text-lg">Tambah Obat</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {medicines.map((medicine) => (
-                    <div key={medicine.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                      <div className="flex-1">
+              <CardContent className="space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari obat..."
+                    value={medicineSearch}
+                    onChange={(e) => setMedicineSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                  {filteredMedicines.map((medicine) => (
+                    <div key={medicine.id} className="flex items-center gap-2 p-3 border rounded-lg hover:border-primary transition-colors">
+                      <button
+                        type="button"
+                        className="flex-1 text-left touch-manipulation active:scale-98 transition-transform"
+                        onClick={() => addMedicine(medicine.id, 1)}
+                      >
                         <div className="font-medium">{medicine.name}</div>
                         <div className="text-sm text-muted-foreground">
                           {formatRupiah(medicine.price)} • Stok: {medicine.stock}
                         </div>
-                      </div>
-                      <Input
-                        type="number"
-                        min="1"
-                        max={medicine.stock}
-                        placeholder="Qty"
-                        className="w-20"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const qty = parseInt((e.target as HTMLInputElement).value);
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          max={medicine.stock}
+                          placeholder="Qty"
+                          className="w-16 h-9 text-center touch-manipulation"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const qty = parseInt((e.target as HTMLInputElement).value);
+                              if (qty > 0) {
+                                addMedicine(medicine.id, qty);
+                                (e.target as HTMLInputElement).value = '';
+                              }
+                            }
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-9 touch-manipulation active:scale-95 transition-transform"
+                          onClick={(e) => {
+                            const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                            const qty = parseInt(input.value);
                             if (qty > 0) {
                               addMedicine(medicine.id, qty);
-                              (e.target as HTMLInputElement).value = '';
+                              input.value = '';
                             }
-                          }
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        onClick={(e) => {
-                          const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
-                          const qty = parseInt(input.value);
-                          if (qty > 0) {
-                            addMedicine(medicine.id, qty);
-                            input.value = '';
-                          }
-                        }}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
+                          }}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
