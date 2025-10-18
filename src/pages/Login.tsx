@@ -11,12 +11,12 @@ export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (role: "admin" | "doctor") => {
+  const handleLogin = async (role: "admin" | "doctor" | "cashier") => {
     setLoading(true);
     // Simulate login
     setTimeout(() => {
       setLoading(false);
-      navigate(role === "admin" ? "/admin" : "/doctor");
+      navigate(role === "admin" ? "/admin" : role === "cashier" ? "/cashier" : "/doctor");
     }, 1000);
   };
 
@@ -38,9 +38,10 @@ export default function Login() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="admin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="admin">Admin</TabsTrigger>
                 <TabsTrigger value="doctor">Dokter</TabsTrigger>
+                <TabsTrigger value="cashier">Kasir</TabsTrigger>
               </TabsList>
 
               <TabsContent value="admin" className="space-y-4 mt-4">
@@ -96,6 +97,34 @@ export default function Login() {
                   disabled={loading}
                 >
                   {loading ? "Loading..." : "Login sebagai Dokter"}
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="cashier" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cashier-email">Email</Label>
+                  <Input
+                    id="cashier-email"
+                    type="email"
+                    placeholder="kasir@klinik.com"
+                    defaultValue="kasir@klinik.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cashier-password">Password</Label>
+                  <Input
+                    id="cashier-password"
+                    type="password"
+                    placeholder="••••••••"
+                    defaultValue="password"
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={() => handleLogin("cashier")}
+                  disabled={loading}
+                >
+                  {loading ? "Loading..." : "Login sebagai Kasir"}
                 </Button>
               </TabsContent>
             </Tabs>

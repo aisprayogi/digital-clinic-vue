@@ -23,11 +23,16 @@ interface BillItem {
 export default function POS() {
   const { toast } = useToast();
   const [billItems, setBillItems] = useState<BillItem[]>([]);
+  const [customerType, setCustomerType] = useState<"patient" | "walk-in">("patient");
   const [selectedPatient, setSelectedPatient] = useState("");
+  const [walkInName, setWalkInName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
   const [amountPaid, setAmountPaid] = useState("");
   const [serviceSearch, setServiceSearch] = useState("");
   const [medicineSearch, setMedicineSearch] = useState("");
+  const [discountType, setDiscountType] = useState<"none" | "percentage" | "fixed">("none");
+  const [discountValue, setDiscountValue] = useState("");
+  const [discountNote, setDiscountNote] = useState("");
 
   // Sample data
   const services = [
@@ -48,6 +53,17 @@ export default function POS() {
     const service = services.find(s => s.id === serviceId);
     if (!service) return;
 
+    // Check if item already exists
+    const existingItem = billItems.find(item => item.name === service.name && item.type === "service");
+    if (existingItem) {
+      updateQuantity(existingItem.id, existingItem.quantity + 1);
+      toast({
+        title: "Jumlah diperbarui",
+        description: `${service.name} (${existingItem.quantity + 1}x)`,
+      });
+      return;
+    }
+
     setBillItems([...billItems, {
       id: `item-${Date.now()}-${Math.random()}`,
       name: service.name,
@@ -67,11 +83,24 @@ export default function POS() {
     const medicine = medicines.find(m => m.id === medicineId);
     if (!medicine) return;
 
-    if (qty > medicine.stock) {
+    // Check if item already exists
+    const existingItem = billItems.find(item => item.name === medicine.name && item.type === "medicine");
+    const newQty = existingItem ? existingItem.quantity + qty : qty;
+
+    if (newQty > medicine.stock) {
       toast({
         title: "Stok tidak cukup",
         description: `Stok ${medicine.name} hanya tersedia ${medicine.stock}`,
         variant: "destructive"
+      });
+      return;
+    }
+
+    if (existingItem) {
+      updateQuantity(existingItem.id, newQty);
+      toast({
+        title: "Jumlah diperbarui",
+        description: `${medicine.name} (${newQty}x)`,
       });
       return;
     }
@@ -106,14 +135,31 @@ export default function POS() {
 
   const subtotal = billItems.reduce((sum, item) => sum + item.total, 0);
   const tax = subtotal * 0.1;
-  const total = subtotal + tax;
+  
+  let discount = 0;
+  if (discountType === "percentage" && discountValue) {
+    discount = subtotal * (parseFloat(discountValue) / 100);
+  } else if (discountType === "fixed" && discountValue) {
+    discount = parseFloat(discountValue);
+  }
+  
+  const total = subtotal + tax - discount;
   const change = amountPaid ? parseFloat(amountPaid) - total : 0;
 
   const handleProcessPayment = () => {
-    if (!selectedPatient) {
+    if (customerType === "patient" && !selectedPatient) {
       toast({
         title: "Error",
         description: "Silakan pilih pasien terlebih dahulu",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (customerType === "walk-in" && !walkInName.trim()) {
+      toast({
+        title: "Error",
+        description: "Silakan masukkan nama pembeli",
         variant: "destructive"
       });
       return;
@@ -145,7 +191,11 @@ export default function POS() {
     // Reset form
     setBillItems([]);
     setSelectedPatient("");
+    setWalkInName("");
     setAmountPaid("");
+    setDiscountType("none");
+    setDiscountValue("");
+    setDiscountNote("");
   };
 
   const formatRupiah = (amount: number) => {
@@ -179,34 +229,60 @@ export default function POS() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Add Items */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Patient Selection */}
+            {/* Customer Selection */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Search className="h-5 w-5" />
-                  Pilih Pasien
+                  Data Pembeli
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <Select value={selectedPatient} onValueChange={setSelectedPatient}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Cari nama atau nomor rekam medis pasien" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="p1">Ahmad Rizki - RM001</SelectItem>
-                    <SelectItem value="p2">Siti Nurhaliza - RM002</SelectItem>
-                    <SelectItem value="p3">Dewi Lestari - RM003</SelectItem>
-                  </SelectContent>
-                </Select>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant={customerType === "patient" ? "default" : "outline"}
+                    onClick={() => setCustomerType("patient")}
+                    className="touch-manipulation"
+                  >
+                    Pasien
+                  </Button>
+                  <Button
+                    variant={customerType === "walk-in" ? "default" : "outline"}
+                    onClick={() => setCustomerType("walk-in")}
+                    className="touch-manipulation"
+                  >
+                    Pembeli Umum
+                  </Button>
+                </div>
+
+                {customerType === "patient" ? (
+                  <Select value={selectedPatient} onValueChange={setSelectedPatient}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Cari nama atau nomor rekam medis pasien" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="p1">Ahmad Rizki - RM001</SelectItem>
+                      <SelectItem value="p2">Siti Nurhaliza - RM002</SelectItem>
+                      <SelectItem value="p3">Dewi Lestari - RM003</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    placeholder="Nama pembeli"
+                    value={walkInName}
+                    onChange={(e) => setWalkInName(e.target.value)}
+                  />
+                )}
               </CardContent>
             </Card>
 
-            {/* Add Service */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Tambah Layanan</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            {/* Add Service - Only for patients */}
+            {customerType === "patient" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Tambah Layanan</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -231,8 +307,9 @@ export default function POS() {
                     </Button>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Add Medicine */}
             <Card>
@@ -358,6 +435,12 @@ export default function POS() {
                         <span className="text-muted-foreground">PPN (10%)</span>
                         <span>{formatRupiah(tax)}</span>
                       </div>
+                      {discount > 0 && (
+                        <div className="flex justify-between text-sm text-success">
+                          <span>Diskon {discountNote && `(${discountNote})`}</span>
+                          <span>-{formatRupiah(discount)}</span>
+                        </div>
+                      )}
                       <Separator />
                       <div className="flex justify-between font-bold text-lg">
                         <span>Total</span>
@@ -370,11 +453,85 @@ export default function POS() {
             </Card>
 
             {billItems.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Metode Pembayaran</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+              <>
+                {/* Discount Management */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Diskon</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Tipe Diskon</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <Button
+                          variant={discountType === "none" ? "default" : "outline"}
+                          onClick={() => {
+                            setDiscountType("none");
+                            setDiscountValue("");
+                            setDiscountNote("");
+                          }}
+                          className="touch-manipulation"
+                          size="sm"
+                        >
+                          Tidak Ada
+                        </Button>
+                        <Button
+                          variant={discountType === "percentage" ? "default" : "outline"}
+                          onClick={() => setDiscountType("percentage")}
+                          className="touch-manipulation"
+                          size="sm"
+                        >
+                          Persentase
+                        </Button>
+                        <Button
+                          variant={discountType === "fixed" ? "default" : "outline"}
+                          onClick={() => setDiscountType("fixed")}
+                          className="touch-manipulation"
+                          size="sm"
+                        >
+                          Nominal
+                        </Button>
+                      </div>
+                    </div>
+
+                    {discountType !== "none" && (
+                      <>
+                        <div className="space-y-2">
+                          <Label>
+                            Nilai Diskon {discountType === "percentage" ? "(%)" : "(Rp)"}
+                          </Label>
+                          <Input
+                            type="number"
+                            placeholder={discountType === "percentage" ? "0-100" : "Nominal"}
+                            value={discountValue}
+                            onChange={(e) => setDiscountValue(e.target.value)}
+                            max={discountType === "percentage" ? "100" : undefined}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Catatan Diskon (Opsional)</Label>
+                          <Input
+                            placeholder="Contoh: Promo Hari Raya, Member VIP"
+                            value={discountNote}
+                            onChange={(e) => setDiscountNote(e.target.value)}
+                          />
+                        </div>
+                        {discount > 0 && (
+                          <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
+                            <div className="text-sm text-muted-foreground">Total Diskon</div>
+                            <div className="text-xl font-bold text-success">{formatRupiah(discount)}</div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Metode Pembayaran</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label>Pilih Metode</Label>
                     <div className="grid grid-cols-3 gap-2">
@@ -435,8 +592,9 @@ export default function POS() {
                       Cetak Struk
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </>
             )}
           </div>
         </div>

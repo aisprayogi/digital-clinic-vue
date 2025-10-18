@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
+import CashierDashboard from "./pages/CashierDashboard";
 import PatientRegistration from "./pages/PatientRegistration";
 import PatientList from "./pages/PatientList";
 import MedicalRecord from "./pages/MedicalRecord";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/" element={<Login />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/doctor" element={<DoctorDashboard />} />
+          <Route path="/cashier" element={<CashierDashboard />} />
           <Route path="/patients" element={<PatientList />} />
           <Route path="/patient-register" element={<PatientRegistration />} />
           <Route path="/medical-record/:patientId" element={<MedicalRecord />} />

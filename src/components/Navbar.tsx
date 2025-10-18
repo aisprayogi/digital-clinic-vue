@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 interface NavbarProps {
-  userRole?: "admin" | "doctor";
+  userRole?: "admin" | "doctor" | "cashier";
   userName?: string;
 }
 
@@ -28,7 +28,7 @@ export function Navbar({ userRole, userName = "User" }: NavbarProps) {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-8">
-            <Link to={userRole === "admin" ? "/admin" : "/doctor"} className="flex items-center gap-2">
+            <Link to={userRole === "admin" ? "/admin" : userRole === "cashier" ? "/cashier" : "/doctor"} className="flex items-center gap-2">
               <Activity className="h-6 w-6 text-primary" />
               <span className="font-semibold text-lg text-foreground">MediClinic</span>
             </Link>
@@ -86,6 +86,35 @@ export function Navbar({ userRole, userName = "User" }: NavbarProps) {
                     size="sm"
                   >
                     Dashboard
+                  </Button>
+                </Link>
+              </div>
+            )}
+
+            {userRole === "cashier" && (
+              <div className="hidden md:flex gap-1">
+                <Link to="/cashier">
+                  <Button
+                    variant={location.pathname === "/cashier" ? "default" : "ghost"}
+                    size="sm"
+                  >
+                    Dashboard
+                  </Button>
+                </Link>
+                <Link to="/pos">
+                  <Button
+                    variant={location.pathname === "/pos" ? "default" : "ghost"}
+                    size="sm"
+                  >
+                    Kasir
+                  </Button>
+                </Link>
+                <Link to="/stock">
+                  <Button
+                    variant={location.pathname === "/stock" ? "default" : "ghost"}
+                    size="sm"
+                  >
+                    Stok Obat
                   </Button>
                 </Link>
               </div>
