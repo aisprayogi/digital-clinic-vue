@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Activity, LogOut, User } from "lucide-react";
+import { Activity, LogOut, User, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,6 +9,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { useState } from "react";
 
 interface NavbarProps {
   userRole?: "admin" | "doctor" | "cashier";
@@ -17,6 +23,7 @@ interface NavbarProps {
 
 export function Navbar({ userRole, userName = "User" }: NavbarProps) {
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     // TODO: Implement logout logic
@@ -27,7 +34,117 @@ export function Navbar({ userRole, userName = "User" }: NavbarProps) {
     <nav className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-4 md:gap-8">
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64">
+                <div className="flex flex-col gap-4 mt-8">
+                  {userRole === "admin" && (
+                    <>
+                      <Link to="/admin" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/admin" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Dashboard
+                        </Button>
+                      </Link>
+                      <Link to="/patients" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/patients" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Pasien
+                        </Button>
+                      </Link>
+                      <Link to="/patient-register" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/patient-register" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Registrasi
+                        </Button>
+                      </Link>
+                      <Link to="/pos" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/pos" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Kasir
+                        </Button>
+                      </Link>
+                      <Link to="/stock" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/stock" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Stok Obat
+                        </Button>
+                      </Link>
+                      <Link to="/promotions" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/promotions" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Promosi
+                        </Button>
+                      </Link>
+                      <Link to="/vouchers" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/vouchers" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Paket Voucher
+                        </Button>
+                      </Link>
+                    </>
+                  )}
+                  {userRole === "doctor" && (
+                    <Link to="/doctor" onClick={() => setMobileMenuOpen(false)}>
+                      <Button
+                        variant={location.pathname === "/doctor" ? "default" : "ghost"}
+                        className="w-full justify-start"
+                      >
+                        Dashboard
+                      </Button>
+                    </Link>
+                  )}
+                  {userRole === "cashier" && (
+                    <>
+                      <Link to="/cashier" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/cashier" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Dashboard
+                        </Button>
+                      </Link>
+                      <Link to="/pos" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/pos" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Kasir
+                        </Button>
+                      </Link>
+                      <Link to="/stock" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/stock" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Stok Obat
+                        </Button>
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
+
             <Link to={userRole === "admin" ? "/admin" : userRole === "cashier" ? "/cashier" : "/doctor"} className="flex items-center gap-2">
               <Activity className="h-6 w-6 text-primary" />
               <span className="font-semibold text-lg text-foreground">MediClinic</span>
