@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Edit2, Trash2, Tag, CalendarIcon } from "lucide-react";
+import { Plus, Edit2, Trash2, Tag, CalendarIcon, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -65,6 +65,8 @@ export default function PromotionManagement() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null);
+  const [serviceSearch, setServiceSearch] = useState("");
+  const [medicineSearch, setMedicineSearch] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     code: "",
@@ -184,6 +186,8 @@ export default function PromotionManagement() {
       isActive: true,
     });
     setEditingPromotion(null);
+    setServiceSearch("");
+    setMedicineSearch("");
   };
 
   const formatRupiah = (amount: number) => {
@@ -378,48 +382,78 @@ export default function PromotionManagement() {
 
                 <div className="space-y-2">
                   <Label>Berlaku untuk Layanan</Label>
+                  <div className="relative mb-2">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Cari layanan..."
+                      value={serviceSearch}
+                      onChange={(e) => setServiceSearch(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
                   <div className="border rounded-lg p-4 space-y-2 max-h-40 overflow-y-auto">
-                    {services.map((service) => (
-                      <div key={service.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`service-${service.id}`}
-                          checked={formData.applicableServices.includes(service.id)}
-                          onCheckedChange={() => toggleService(service.id)}
-                        />
-                        <label
-                          htmlFor={`service-${service.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {service.name}
-                        </label>
-                      </div>
-                    ))}
-                    {formData.applicableServices.length === 0 && (
-                      <p className="text-sm text-muted-foreground">Tidak ada layanan dipilih</p>
+                    {services
+                      .filter(service => 
+                        service.name.toLowerCase().includes(serviceSearch.toLowerCase())
+                      )
+                      .map((service) => (
+                        <div key={service.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`service-${service.id}`}
+                            checked={formData.applicableServices.includes(service.id)}
+                            onCheckedChange={() => toggleService(service.id)}
+                          />
+                          <label
+                            htmlFor={`service-${service.id}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {service.name}
+                          </label>
+                        </div>
+                      ))}
+                    {services.filter(service => 
+                      service.name.toLowerCase().includes(serviceSearch.toLowerCase())
+                    ).length === 0 && (
+                      <p className="text-sm text-muted-foreground">Tidak ada layanan ditemukan</p>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label>Berlaku untuk Obat</Label>
+                  <div className="relative mb-2">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Cari obat..."
+                      value={medicineSearch}
+                      onChange={(e) => setMedicineSearch(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
                   <div className="border rounded-lg p-4 space-y-2 max-h-40 overflow-y-auto">
-                    {medicines.map((medicine) => (
-                      <div key={medicine.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`medicine-${medicine.id}`}
-                          checked={formData.applicableMedicines.includes(medicine.id)}
-                          onCheckedChange={() => toggleMedicine(medicine.id)}
-                        />
-                        <label
-                          htmlFor={`medicine-${medicine.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {medicine.name}
-                        </label>
-                      </div>
-                    ))}
-                    {formData.applicableMedicines.length === 0 && (
-                      <p className="text-sm text-muted-foreground">Tidak ada obat dipilih</p>
+                    {medicines
+                      .filter(medicine => 
+                        medicine.name.toLowerCase().includes(medicineSearch.toLowerCase())
+                      )
+                      .map((medicine) => (
+                        <div key={medicine.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`medicine-${medicine.id}`}
+                            checked={formData.applicableMedicines.includes(medicine.id)}
+                            onCheckedChange={() => toggleMedicine(medicine.id)}
+                          />
+                          <label
+                            htmlFor={`medicine-${medicine.id}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {medicine.name}
+                          </label>
+                        </div>
+                      ))}
+                    {medicines.filter(medicine => 
+                      medicine.name.toLowerCase().includes(medicineSearch.toLowerCase())
+                    ).length === 0 && (
+                      <p className="text-sm text-muted-foreground">Tidak ada obat ditemukan</p>
                     )}
                   </div>
                 </div>
