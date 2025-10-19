@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Search, Plus, Trash2, CreditCard, Banknote, Smartphone, Printer, ShoppingCart, Tag, Sparkles, Ticket } from "lucide-react";
+import { Search, Plus, Trash2, CreditCard, Banknote, Smartphone, Printer, ShoppingCart, Tag, Sparkles, Ticket, Save, FolderOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { DraftTransactionsDialog } from "@/components/DraftTransactionsDialog";
 import type { PatientVoucher } from "./VoucherManagement";
+import type { DraftTransaction, DraftTransactionItem } from "@/types/cashier";
 
 interface Promotion {
   id: string;
@@ -38,6 +41,9 @@ interface BillItem {
 
 export default function POS() {
   const { toast } = useToast();
+  const location = useLocation();
+  const sessionId = location.state?.sessionId;
+  
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [customerType, setCustomerType] = useState<"patient" | "walk-in">("patient");
   const [selectedPatient, setSelectedPatient] = useState("");
@@ -54,6 +60,9 @@ export default function POS() {
   const [promoCode, setPromoCode] = useState("");
   const [selectedVoucher, setSelectedVoucher] = useState<string>("");
   const [patientVouchers, setPatientVouchers] = useState<PatientVoucher[]>([]);
+  const [draftTransactions, setDraftTransactions] = useState<DraftTransaction[]>([]);
+  const [showDraftsDialog, setShowDraftsDialog] = useState(false);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
 
   // Sample promotions - same as in PromotionManagement
   const promotions: Promotion[] = [
@@ -305,6 +314,133 @@ export default function POS() {
   const total = subtotal + tax - discount;
   const change = amountPaid ? parseFloat(amountPaid) - total : 0;
 
+  const handleSaveDraft = () => {
+    if (customerType === "patient" && !selectedPatient) {
+      toast({
+        title: "Error",
+        description: "Silakan pilih pasien terlebih dahulu",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (customerType === "walk-in" && !walkInName.trim()) {
+      toast({
+        title: "Error",
+        description: "Silakan masukkan nama pembeli",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (billItems.length === 0) {
+      toast({
+        title: "Error",
+        description: "Belum ada item untuk disimpan",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const draft: DraftTransaction = {
+      id: currentDraftId || `draft-${Date.now()}`,
+      draftNumber: currentDraftId 
+        ? draftTransactions.find(d => d.id === currentDraftId)?.draftNumber || `D${Date.now()}`
+        : `D${Date.now()}`,
+      sessionId: sessionId || 'no-session',
+      customerType,
+      customerId: customerType === "patient" ? selectedPatient : undefined,
+      customerName: customerType === "patient" 
+        ? `Pasien - ${selectedPatient}` 
+        : walkInName,
+      items: billItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        type: item.type,
+        price: item.price,
+        quantity: item.quantity,
+        total: item.total
+      })),
+      subtotal,
+      tax,
+      discount,
+      discountType,
+      discountNote,
+      total,
+      createdAt: currentDraftId 
+        ? draftTransactions.find(d => d.id === currentDraftId)?.createdAt || new Date()
+        : new Date(),
+      updatedAt: new Date()
+    };
+
+    if (currentDraftId) {
+      setDraftTransactions(drafts => 
+        drafts.map(d => d.id === currentDraftId ? draft : d)
+      );
+    } else {
+      setDraftTransactions(drafts => [...drafts, draft]);
+    }
+
+    toast({
+      title: "Draft Disimpan",
+      description: `Transaksi ${draft.draftNumber} berhasil disimpan`,
+    });
+
+    // Reset form
+    resetForm();
+  };
+
+  const handleLoadDraft = (draft: DraftTransaction) => {
+    setCustomerType(draft.customerType);
+    if (draft.customerType === "patient") {
+      setSelectedPatient(draft.customerId || "");
+    } else {
+      setWalkInName(draft.customerName);
+    }
+    setBillItems(draft.items.map(item => ({
+      id: item.id,
+      name: item.name,
+      type: item.type,
+      price: item.price,
+      quantity: item.quantity,
+      total: item.total
+    })));
+    setDiscountType(draft.discountType || "none");
+    setDiscountNote(draft.discountNote || "");
+    setCurrentDraftId(draft.id);
+
+    toast({
+      title: "Draft Dimuat",
+      description: `Transaksi ${draft.draftNumber} berhasil dimuat`,
+    });
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    setDraftTransactions(drafts => drafts.filter(d => d.id !== draftId));
+    if (currentDraftId === draftId) {
+      resetForm();
+    }
+    toast({
+      title: "Draft Dihapus",
+      description: "Draft transaksi berhasil dihapus",
+    });
+  };
+
+  const resetForm = () => {
+    setBillItems([]);
+    setSelectedPatient("");
+    setWalkInName("");
+    setAmountPaid("");
+    setDiscountType("none");
+    setDiscountValue("");
+    setDiscountNote("");
+    setAppliedPromotion(null);
+    setSelectedPromotion("");
+    setPromoCode("");
+    setSelectedVoucher("");
+    setCurrentDraftId(null);
+  };
+
   const handleProcessPayment = () => {
     if (customerType === "patient" && !selectedPatient) {
       toast({
@@ -356,18 +492,13 @@ export default function POS() {
       }
     }
 
+    // If this was a draft, remove it
+    if (currentDraftId) {
+      setDraftTransactions(drafts => drafts.filter(d => d.id !== currentDraftId));
+    }
+
     // Reset form
-    setBillItems([]);
-    setSelectedPatient("");
-    setWalkInName("");
-    setAmountPaid("");
-    setDiscountType("none");
-    setDiscountValue("");
-    setDiscountNote("");
-    setAppliedPromotion(null);
-    setSelectedPromotion("");
-    setPromoCode("");
-    setSelectedVoucher("");
+    resetForm();
   };
 
   const formatRupiah = (amount: number) => {
@@ -438,10 +569,32 @@ export default function POS() {
       
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Point of Sale (Kasir)</h1>
-          <p className="text-muted-foreground">
-            Proses pembayaran dan tagihan pasien
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Point of Sale (Kasir)</h1>
+              <p className="text-muted-foreground">
+                Proses pembayaran dan tagihan pasien
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowDraftsDialog(true)}
+              >
+                <FolderOpen className="mr-2 h-4 w-4" />
+                Buka Draft ({draftTransactions.length})
+              </Button>
+              {billItems.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={handleSaveDraft}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {currentDraftId ? "Update Draft" : "Simpan Draft"}
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -978,6 +1131,15 @@ export default function POS() {
             )}
           </div>
         </div>
+
+        {/* Draft Transactions Dialog */}
+        <DraftTransactionsDialog
+          open={showDraftsDialog}
+          onOpenChange={setShowDraftsDialog}
+          drafts={draftTransactions}
+          onLoadDraft={handleLoadDraft}
+          onDeleteDraft={handleDeleteDraft}
+        />
       </main>
     </div>
   );
