@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Search, Plus, Trash2, CreditCard, Banknote, Smartphone, Printer, ShoppingCart, Tag, Sparkles } from "lucide-react";
+import { Search, Plus, Trash2, CreditCard, Banknote, Smartphone, Printer, ShoppingCart, Tag, Sparkles, Ticket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { PatientVoucher } from "./VoucherManagement";
 
 interface Promotion {
   id: string;
@@ -51,6 +52,8 @@ export default function POS() {
   const [selectedPromotion, setSelectedPromotion] = useState<string>("");
   const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
   const [promoCode, setPromoCode] = useState("");
+  const [selectedVoucher, setSelectedVoucher] = useState<string>("");
+  const [patientVouchers, setPatientVouchers] = useState<PatientVoucher[]>([]);
 
   // Sample promotions - same as in PromotionManagement
   const promotions: Promotion[] = [
@@ -97,6 +100,50 @@ export default function POS() {
     { id: "m3", name: "Vitamin C", price: 15000, stock: 32 },
     { id: "m4", name: "OBH Combi", price: 25000, stock: 45 },
   ];
+
+  // Sample patient vouchers - would come from VoucherManagement in real app
+  const allPatientVouchers: PatientVoucher[] = [
+    {
+      id: "pv1",
+      patientId: "p1",
+      patientName: "Budi Santoso",
+      packageId: "pkg1",
+      packageName: "Paket Scaling 5x",
+      remainingSessions: 3,
+      totalSessions: 5,
+      purchaseDate: new Date(2024, 0, 15),
+      expiryDate: new Date(2024, 6, 15),
+      isActive: true,
+    },
+    {
+      id: "pv2",
+      patientId: "p2",
+      patientName: "Siti Nurhaliza",
+      packageId: "pkg2",
+      packageName: "Paket Konsultasi Umum 10x",
+      remainingSessions: 8,
+      totalSessions: 10,
+      purchaseDate: new Date(2024, 1, 1),
+      expiryDate: new Date(2025, 1, 1),
+      isActive: true,
+    },
+  ];
+
+  // Update patient vouchers when patient changes
+  useEffect(() => {
+    if (selectedPatient) {
+      const vouchers = allPatientVouchers.filter(v => 
+        v.patientId === selectedPatient && 
+        v.isActive && 
+        v.remainingSessions > 0 &&
+        new Date() <= v.expiryDate
+      );
+      setPatientVouchers(vouchers);
+    } else {
+      setPatientVouchers([]);
+    }
+    setSelectedVoucher("");
+  }, [selectedPatient]);
 
   const addService = (serviceId: string) => {
     const service = services.find(s => s.id === serviceId);
@@ -300,6 +347,15 @@ export default function POS() {
       description: `Tagihan sebesar ${formatRupiah(total)} telah diproses`,
     });
 
+    // Reduce voucher session if used
+    if (selectedVoucher) {
+      const voucher = patientVouchers.find(v => v.id === selectedVoucher);
+      if (voucher) {
+        // In real app, update voucher in database
+        console.log(`Reducing voucher ${voucher.id} by 1 session`);
+      }
+    }
+
     // Reset form
     setBillItems([]);
     setSelectedPatient("");
@@ -311,6 +367,7 @@ export default function POS() {
     setAppliedPromotion(null);
     setSelectedPromotion("");
     setPromoCode("");
+    setSelectedVoucher("");
   };
 
   const formatRupiah = (amount: number) => {
@@ -436,6 +493,63 @@ export default function POS() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Patient Vouchers */}
+            {customerType === "patient" && patientVouchers.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Ticket className="h-5 w-5" />
+                    Voucher Pasien
+                  </CardTitle>
+                  <CardDescription>Voucher yang tersedia untuk pasien ini</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid gap-2">
+                    {patientVouchers.map((voucher) => (
+                      <button
+                        key={voucher.id}
+                        onClick={() => {
+                          if (selectedVoucher === voucher.id) {
+                            setSelectedVoucher("");
+                          } else {
+                            setSelectedVoucher(voucher.id);
+                          }
+                        }}
+                        className={`
+                          p-4 border rounded-lg text-left transition-all touch-manipulation
+                          ${selectedVoucher === voucher.id 
+                            ? 'border-primary bg-primary/5' 
+                            : 'hover:border-primary/50'
+                          }
+                        `}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="font-medium">{voucher.packageName}</div>
+                          <Badge variant={selectedVoucher === voucher.id ? "default" : "outline"}>
+                            {selectedVoucher === voucher.id ? "Terpilih" : "Pilih"}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Sisa: {voucher.remainingSessions} / {voucher.totalSessions} sesi
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Berlaku sampai: {new Date(voucher.expiryDate).toLocaleDateString('id-ID')}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedVoucher && (
+                    <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span className="font-medium">Voucher akan digunakan untuk layanan ini</span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Add Service - Only for patients */}
             {customerType === "patient" && (

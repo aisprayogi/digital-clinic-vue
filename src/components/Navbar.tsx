@@ -83,6 +83,14 @@ export function Navbar({ userRole, userName = "User" }: NavbarProps) {
                     Promosi
                   </Button>
                 </Link>
+                <Link to="/vouchers">
+                  <Button
+                    variant={location.pathname === "/vouchers" ? "default" : "ghost"}
+                    size="sm"
+                  >
+                    Paket Voucher
+                  </Button>
+                </Link>
               </div>
             )}
 
