@@ -14,6 +14,7 @@ import PatientList from "./pages/PatientList";
 import MedicalRecord from "./pages/MedicalRecord";
 import POS from "./pages/POS";
 import StockManagement from "./pages/StockManagement";
+import PromotionManagement from "./pages/PromotionManagement";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/medical-record/:patientId" element={<MedicalRecord />} />
           <Route path="/pos" element={<POS />} />
           <Route path="/stock" element={<StockManagement />} />
+          <Route path="/promotions" element={<PromotionManagement />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

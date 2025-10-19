@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Search, Plus, Trash2, CreditCard, Banknote, Smartphone, Printer, ShoppingCart } from "lucide-react";
+import { Search, Plus, Trash2, CreditCard, Banknote, Smartphone, Printer, ShoppingCart, Tag, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface Promotion {
+  id: string;
+  name: string;
+  code: string;
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+  startDate: Date;
+  endDate: Date;
+  applicableServices: string[];
+  applicableMedicines: string[];
+  minPurchase?: number;
+  maxDiscount?: number;
+  isActive: boolean;
+}
 
 interface BillItem {
   id: string;
@@ -30,9 +45,43 @@ export default function POS() {
   const [amountPaid, setAmountPaid] = useState("");
   const [serviceSearch, setServiceSearch] = useState("");
   const [medicineSearch, setMedicineSearch] = useState("");
-  const [discountType, setDiscountType] = useState<"none" | "percentage" | "fixed">("none");
+  const [discountType, setDiscountType] = useState<"none" | "percentage" | "fixed" | "promotion">("none");
   const [discountValue, setDiscountValue] = useState("");
   const [discountNote, setDiscountNote] = useState("");
+  const [selectedPromotion, setSelectedPromotion] = useState<string>("");
+  const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
+  const [promoCode, setPromoCode] = useState("");
+
+  // Sample promotions - same as in PromotionManagement
+  const promotions: Promotion[] = [
+    {
+      id: "promo1",
+      name: "Diskon Lebaran",
+      code: "LEBARAN2024",
+      discountType: "percentage",
+      discountValue: 15,
+      startDate: new Date(2024, 3, 1),
+      endDate: new Date(2024, 3, 30),
+      applicableServices: ["s1", "s2"],
+      applicableMedicines: [],
+      minPurchase: 100000,
+      maxDiscount: 50000,
+      isActive: true,
+    },
+    {
+      id: "promo2",
+      name: "Diskon Obat",
+      code: "OBAT50",
+      discountType: "fixed",
+      discountValue: 50000,
+      startDate: new Date(2024, 0, 1),
+      endDate: new Date(2024, 11, 31),
+      applicableServices: [],
+      applicableMedicines: ["m1", "m2", "m3"],
+      minPurchase: 200000,
+      isActive: true,
+    },
+  ];
 
   // Sample data
   const services = [
@@ -133,11 +182,74 @@ export default function POS() {
     ));
   };
 
+  // Check for applicable automatic promotions
+  useEffect(() => {
+    if (discountType === "promotion" && appliedPromotion) return; // Don't auto-apply if manually selected
+    if (discountType !== "none") return; // Don't auto-apply if manual discount is set
+
+    const now = new Date();
+    const activePromotions = promotions.filter(promo => {
+      if (!promo.isActive) return false;
+      if (now < promo.startDate || now > promo.endDate) return false;
+      
+      // Check if promo applies to current items
+      const hasApplicableItems = billItems.some(item => {
+        if (item.type === "service" && promo.applicableServices.length > 0) {
+          const serviceId = services.find(s => s.name === item.name)?.id;
+          return serviceId && promo.applicableServices.includes(serviceId);
+        }
+        if (item.type === "medicine" && promo.applicableMedicines.length > 0) {
+          const medicineId = medicines.find(m => m.name === item.name)?.id;
+          return medicineId && promo.applicableMedicines.includes(medicineId);
+        }
+        // If promo has no specific items, it applies to all
+        return promo.applicableServices.length === 0 && promo.applicableMedicines.length === 0;
+      });
+
+      if (!hasApplicableItems) return false;
+
+      // Check minimum purchase
+      const currentSubtotal = billItems.reduce((sum, item) => sum + item.total, 0);
+      if (promo.minPurchase && currentSubtotal < promo.minPurchase) return false;
+
+      return true;
+    });
+
+    // Apply the best promotion automatically
+    if (activePromotions.length > 0) {
+      // Sort by highest discount value
+      const bestPromo = activePromotions.sort((a, b) => {
+        const aDiscount = a.discountType === "percentage" 
+          ? subtotal * (a.discountValue / 100) 
+          : a.discountValue;
+        const bDiscount = b.discountType === "percentage" 
+          ? subtotal * (b.discountValue / 100) 
+          : b.discountValue;
+        return bDiscount - aDiscount;
+      })[0];
+
+      setAppliedPromotion(bestPromo);
+      setDiscountType("promotion");
+      setDiscountNote(`${bestPromo.name} (Otomatis)`);
+    } else {
+      setAppliedPromotion(null);
+    }
+  }, [billItems, discountType]);
+
   const subtotal = billItems.reduce((sum, item) => sum + item.total, 0);
   const tax = subtotal * 0.1;
   
   let discount = 0;
-  if (discountType === "percentage" && discountValue) {
+  if (discountType === "promotion" && appliedPromotion) {
+    if (appliedPromotion.discountType === "percentage") {
+      discount = subtotal * (appliedPromotion.discountValue / 100);
+      if (appliedPromotion.maxDiscount && discount > appliedPromotion.maxDiscount) {
+        discount = appliedPromotion.maxDiscount;
+      }
+    } else {
+      discount = appliedPromotion.discountValue;
+    }
+  } else if (discountType === "percentage" && discountValue) {
     discount = subtotal * (parseFloat(discountValue) / 100);
   } else if (discountType === "fixed" && discountValue) {
     discount = parseFloat(discountValue);
@@ -196,6 +308,9 @@ export default function POS() {
     setDiscountType("none");
     setDiscountValue("");
     setDiscountNote("");
+    setAppliedPromotion(null);
+    setSelectedPromotion("");
+    setPromoCode("");
   };
 
   const formatRupiah = (amount: number) => {
@@ -213,6 +328,52 @@ export default function POS() {
   const filteredMedicines = medicines.filter(m => 
     m.name.toLowerCase().includes(medicineSearch.toLowerCase())
   );
+
+  const applyPromoCode = () => {
+    const promo = promotions.find(p => 
+      p.code.toUpperCase() === promoCode.toUpperCase() && 
+      p.isActive &&
+      new Date() >= p.startDate &&
+      new Date() <= p.endDate
+    );
+
+    if (!promo) {
+      toast({
+        title: "Kode promo tidak valid",
+        description: "Kode promo tidak ditemukan atau sudah tidak berlaku",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check minimum purchase
+    if (promo.minPurchase && subtotal < promo.minPurchase) {
+      toast({
+        title: "Minimum pembelian belum terpenuhi",
+        description: `Minimum pembelian untuk promo ini adalah ${formatRupiah(promo.minPurchase)}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAppliedPromotion(promo);
+    setDiscountType("promotion");
+    setDiscountNote(`${promo.name} (${promo.code})`);
+    setPromoCode("");
+    
+    toast({
+      title: "Promo diterapkan",
+      description: `${promo.name} berhasil diterapkan`,
+    });
+  };
+
+  const availablePromotions = promotions.filter(promo => {
+    if (!promo.isActive) return false;
+    const now = new Date();
+    if (now < promo.startDate || now > promo.endDate) return false;
+    if (promo.minPurchase && subtotal < promo.minPurchase) return false;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -457,18 +618,44 @@ export default function POS() {
                 {/* Discount Management */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Diskon</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Tag className="h-5 w-5" />
+                      Diskon & Promo
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Auto-applied promotion notice */}
+                    {appliedPromotion && discountType === "promotion" && !selectedPromotion && (
+                      <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg flex items-start gap-2">
+                        <Sparkles className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">Promo Otomatis Diterapkan!</div>
+                          <div className="text-xs text-muted-foreground">{appliedPromotion.name}</div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setDiscountType("none");
+                            setAppliedPromotion(null);
+                            setDiscountNote("");
+                          }}
+                        >
+                          Hapus
+                        </Button>
+                      </div>
+                    )}
+
                     <div className="space-y-2">
                       <Label>Tipe Diskon</Label>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <Button
                           variant={discountType === "none" ? "default" : "outline"}
                           onClick={() => {
                             setDiscountType("none");
                             setDiscountValue("");
                             setDiscountNote("");
+                            setAppliedPromotion(null);
                           }}
                           className="touch-manipulation"
                           size="sm"
@@ -476,8 +663,23 @@ export default function POS() {
                           Tidak Ada
                         </Button>
                         <Button
+                          variant={discountType === "promotion" ? "default" : "outline"}
+                          onClick={() => {
+                            setDiscountType("promotion");
+                            setDiscountValue("");
+                          }}
+                          className="touch-manipulation"
+                          size="sm"
+                        >
+                          <Tag className="h-3 w-3 mr-1" />
+                          Promo
+                        </Button>
+                        <Button
                           variant={discountType === "percentage" ? "default" : "outline"}
-                          onClick={() => setDiscountType("percentage")}
+                          onClick={() => {
+                            setDiscountType("percentage");
+                            setAppliedPromotion(null);
+                          }}
                           className="touch-manipulation"
                           size="sm"
                         >
@@ -485,7 +687,10 @@ export default function POS() {
                         </Button>
                         <Button
                           variant={discountType === "fixed" ? "default" : "outline"}
-                          onClick={() => setDiscountType("fixed")}
+                          onClick={() => {
+                            setDiscountType("fixed");
+                            setAppliedPromotion(null);
+                          }}
                           className="touch-manipulation"
                           size="sm"
                         >
@@ -494,7 +699,62 @@ export default function POS() {
                       </div>
                     </div>
 
-                    {discountType !== "none" && (
+                    {discountType === "promotion" && (
+                      <>
+                        <div className="space-y-2">
+                          <Label>Pilih Promo</Label>
+                          <Select
+                            value={selectedPromotion}
+                            onValueChange={(value) => {
+                              setSelectedPromotion(value);
+                              const promo = promotions.find(p => p.id === value);
+                              if (promo) {
+                                setAppliedPromotion(promo);
+                                setDiscountNote(`${promo.name} (${promo.code})`);
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih promo yang tersedia" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availablePromotions.map((promo) => (
+                                <SelectItem key={promo.id} value={promo.id}>
+                                  {promo.name} - {promo.discountType === "percentage" 
+                                    ? `${promo.discountValue}%` 
+                                    : formatRupiah(promo.discountValue)
+                                  }
+                                </SelectItem>
+                              ))}
+                              {availablePromotions.length === 0 && (
+                                <SelectItem value="none" disabled>Tidak ada promo tersedia</SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="relative">
+                          <Label>Atau Masukkan Kode Promo</Label>
+                          <div className="flex gap-2 mt-2">
+                            <Input
+                              placeholder="Masukkan kode promo"
+                              value={promoCode}
+                              onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  applyPromoCode();
+                                }
+                              }}
+                            />
+                            <Button onClick={applyPromoCode} className="touch-manipulation">
+                              Terapkan
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {(discountType === "percentage" || discountType === "fixed") && (
                       <>
                         <div className="space-y-2">
                           <Label>
@@ -516,13 +776,19 @@ export default function POS() {
                             onChange={(e) => setDiscountNote(e.target.value)}
                           />
                         </div>
-                        {discount > 0 && (
-                          <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
-                            <div className="text-sm text-muted-foreground">Total Diskon</div>
-                            <div className="text-xl font-bold text-success">{formatRupiah(discount)}</div>
+                      </>
+                    )}
+
+                    {discount > 0 && (
+                      <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
+                        <div className="text-sm text-muted-foreground">Total Diskon</div>
+                        <div className="text-xl font-bold text-success">{formatRupiah(discount)}</div>
+                        {appliedPromotion && appliedPromotion.maxDiscount && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Maks. {formatRupiah(appliedPromotion.maxDiscount)}
                           </div>
                         )}
-                      </>
+                      </div>
                     )}
                   </CardContent>
                 </Card>

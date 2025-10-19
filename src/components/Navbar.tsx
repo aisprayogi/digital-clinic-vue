@@ -75,6 +75,14 @@ export function Navbar({ userRole, userName = "User" }: NavbarProps) {
                     Stok Obat
                   </Button>
                 </Link>
+                <Link to="/promotions">
+                  <Button
+                    variant={location.pathname === "/promotions" ? "default" : "ghost"}
+                    size="sm"
+                  >
+                    Promosi
+                  </Button>
+                </Link>
               </div>
             )}
 
