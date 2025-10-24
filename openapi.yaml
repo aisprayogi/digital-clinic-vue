@@ -1,0 +1,2355 @@
+openapi: 3.0.3
+info:
+  title: Clinic Management System API
+  description: Comprehensive API for clinic management including patient records, inventory, cashier operations, and queue management
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@clinic.com
+
+servers:
+  - url: https://your-project.supabase.co/rest/v1
+    description: Supabase REST API
+  - url: https://your-project.supabase.co/functions/v1
+    description: Supabase Edge Functions
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Users
+    description: User profile and role management
+  - name: Patients
+    description: Patient registration and information
+  - name: Medical Records
+    description: Patient medical records and attachments
+  - name: Services
+    description: Medical services catalog
+  - name: Medicines
+    description: Medicine inventory management
+  - name: Stock
+    description: Stock transactions and management
+  - name: Cashier Sessions
+    description: Cashier session management
+  - name: Transactions
+    description: Sales transactions
+  - name: Draft Transactions
+    description: Draft/saved transactions
+  - name: Promotions
+    description: Promotion management
+  - name: Vouchers
+    description: Voucher management
+  - name: Queue
+    description: Patient queue management
+  - name: Analytics
+    description: Dashboard analytics and reports
+  - name: Storage
+    description: File upload and management
+
+paths:
+  # ==================== AUTHENTICATION ====================
+  /auth/v1/signup:
+    post:
+      tags: [Authentication]
+      summary: Register new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 6
+                options:
+                  type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        full_name:
+                          type: string
+                        phone:
+                          type: string
+      responses:
+        '200':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/v1/token:
+    post:
+      tags: [Authentication]
+      summary: Login user
+      security: []
+      parameters:
+        - in: query
+          name: grant_type
+          schema:
+            type: string
+            enum: [password]
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/v1/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout user
+      responses:
+        '204':
+          description: Logout successful
+
+  # ==================== USER PROFILES ====================
+  /profiles:
+    get:
+      tags: [Users]
+      summary: Get all user profiles
+      parameters:
+        - $ref: '#/components/parameters/select'
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: List of profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Profile'
+
+    post:
+      tags: [Users]
+      summary: Create user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileInput'
+      responses:
+        '201':
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+
+  /profiles/{id}:
+    get:
+      tags: [Users]
+      summary: Get profile by ID
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Profile details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+
+    patch:
+      tags: [Users]
+      summary: Update profile
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileInput'
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+
+  # ==================== USER ROLES ====================
+  /user_roles:
+    get:
+      tags: [Users]
+      summary: Get user roles
+      parameters:
+        - in: query
+          name: user_id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of user roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserRole'
+
+    post:
+      tags: [Users]
+      summary: Assign role to user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, role]
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                role:
+                  $ref: '#/components/schemas/AppRole'
+      responses:
+        '201':
+          description: Role assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRole'
+
+  /user_roles/{id}:
+    delete:
+      tags: [Users]
+      summary: Remove role from user
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: Role removed
+
+  # ==================== PATIENTS ====================
+  /patients:
+    get:
+      tags: [Patients]
+      summary: Get all patients
+      parameters:
+        - $ref: '#/components/parameters/select'
+        - in: query
+          name: patient_id
+          schema:
+            type: string
+        - in: query
+          name: nik
+          schema:
+            type: string
+        - in: query
+          name: full_name
+          schema:
+            type: string
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: List of patients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Patient'
+
+    post:
+      tags: [Patients]
+      summary: Register new patient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientInput'
+      responses:
+        '201':
+          description: Patient registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+
+  /patients/{id}:
+    get:
+      tags: [Patients]
+      summary: Get patient by ID
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Patient details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+
+    patch:
+      tags: [Patients]
+      summary: Update patient
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientInput'
+      responses:
+        '200':
+          description: Patient updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+
+    delete:
+      tags: [Patients]
+      summary: Delete patient
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: Patient deleted
+
+  # ==================== MEDICAL RECORDS ====================
+  /medical_records:
+    get:
+      tags: [Medical Records]
+      summary: Get medical records
+      parameters:
+        - in: query
+          name: patient_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: doctor_id
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: List of medical records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MedicalRecord'
+
+    post:
+      tags: [Medical Records]
+      summary: Create medical record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicalRecordInput'
+      responses:
+        '201':
+          description: Medical record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalRecord'
+
+  /medical_records/{id}:
+    get:
+      tags: [Medical Records]
+      summary: Get medical record by ID
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Medical record details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalRecord'
+
+    patch:
+      tags: [Medical Records]
+      summary: Update medical record
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicalRecordInput'
+      responses:
+        '200':
+          description: Medical record updated
+
+  /medical_record_attachments:
+    get:
+      tags: [Medical Records]
+      summary: Get medical record attachments
+      parameters:
+        - in: query
+          name: medical_record_id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MedicalRecordAttachment'
+
+    post:
+      tags: [Medical Records]
+      summary: Add attachment to medical record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [medical_record_id, file_path, file_type]
+              properties:
+                medical_record_id:
+                  type: string
+                  format: uuid
+                file_path:
+                  type: string
+                file_type:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Attachment added
+
+  # ==================== SERVICES ====================
+  /services:
+    get:
+      tags: [Services]
+      summary: Get all services
+      parameters:
+        - in: query
+          name: is_active
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/order'
+      responses:
+        '200':
+          description: List of services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Service'
+
+    post:
+      tags: [Services]
+      summary: Create service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+      responses:
+        '201':
+          description: Service created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+
+  /services/{id}:
+    get:
+      tags: [Services]
+      summary: Get service by ID
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Service details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+
+    patch:
+      tags: [Services]
+      summary: Update service
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+      responses:
+        '200':
+          description: Service updated
+
+    delete:
+      tags: [Services]
+      summary: Delete service
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: Service deleted
+
+  # ==================== MEDICINES ====================
+  /medicines:
+    get:
+      tags: [Medicines]
+      summary: Get all medicines
+      parameters:
+        - in: query
+          name: medicine_code
+          schema:
+            type: string
+        - in: query
+          name: name
+          schema:
+            type: string
+        - in: query
+          name: low_stock
+          schema:
+            type: boolean
+          description: Filter medicines with stock below minimum
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: List of medicines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Medicine'
+
+    post:
+      tags: [Medicines]
+      summary: Add medicine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicineInput'
+      responses:
+        '201':
+          description: Medicine added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medicine'
+
+  /medicines/{id}:
+    get:
+      tags: [Medicines]
+      summary: Get medicine by ID
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Medicine details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medicine'
+
+    patch:
+      tags: [Medicines]
+      summary: Update medicine
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicineInput'
+      responses:
+        '200':
+          description: Medicine updated
+
+    delete:
+      tags: [Medicines]
+      summary: Delete medicine
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: Medicine deleted
+
+  # ==================== STOCK TRANSACTIONS ====================
+  /stock_transactions:
+    get:
+      tags: [Stock]
+      summary: Get stock transactions
+      parameters:
+        - in: query
+          name: medicine_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: transaction_type
+          schema:
+            type: string
+            enum: [in, out, adjustment]
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: List of stock transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StockTransaction'
+
+    post:
+      tags: [Stock]
+      summary: Create stock transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockTransactionInput'
+      responses:
+        '201':
+          description: Stock transaction created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockTransaction'
+
+  # ==================== CASHIER SESSIONS ====================
+  /cashier_sessions:
+    get:
+      tags: [Cashier Sessions]
+      summary: Get cashier sessions
+      parameters:
+        - in: query
+          name: cashier_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [open, closed]
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: List of cashier sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CashierSession'
+
+    post:
+      tags: [Cashier Sessions]
+      summary: Open cashier session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cashier_id, opening_balance]
+              properties:
+                cashier_id:
+                  type: string
+                  format: uuid
+                opening_balance:
+                  type: number
+                  format: decimal
+      responses:
+        '201':
+          description: Session opened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashierSession'
+
+  /cashier_sessions/{id}:
+    get:
+      tags: [Cashier Sessions]
+      summary: Get session by ID
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashierSession'
+
+    patch:
+      tags: [Cashier Sessions]
+      summary: Close cashier session
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [closing_balance, status]
+              properties:
+                closing_balance:
+                  type: number
+                  format: decimal
+                status:
+                  type: string
+                  enum: [closed]
+      responses:
+        '200':
+          description: Session closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashierSession'
+
+  # ==================== TRANSACTIONS ====================
+  /transactions:
+    get:
+      tags: [Transactions]
+      summary: Get transactions
+      parameters:
+        - in: query
+          name: session_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: cashier_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: patient_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: transaction_date
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+
+    post:
+      tags: [Transactions]
+      summary: Create transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionInput'
+      responses:
+        '201':
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+
+  /transactions/{id}:
+    get:
+      tags: [Transactions]
+      summary: Get transaction by ID
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+
+  # ==================== TRANSACTION ITEMS ====================
+  /transaction_items:
+    get:
+      tags: [Transactions]
+      summary: Get transaction items
+      parameters:
+        - in: query
+          name: transaction_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        '200':
+          description: List of transaction items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TransactionItem'
+
+    post:
+      tags: [Transactions]
+      summary: Add transaction item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionItemInput'
+      responses:
+        '201':
+          description: Item added
+
+  # ==================== DRAFT TRANSACTIONS ====================
+  /draft_transactions:
+    get:
+      tags: [Draft Transactions]
+      summary: Get draft transactions
+      parameters:
+        - in: query
+          name: session_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: cashier_id
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/order'
+      responses:
+        '200':
+          description: List of draft transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DraftTransaction'
+
+    post:
+      tags: [Draft Transactions]
+      summary: Save transaction as draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftTransactionInput'
+      responses:
+        '201':
+          description: Draft saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftTransaction'
+
+  /draft_transactions/{id}:
+    get:
+      tags: [Draft Transactions]
+      summary: Get draft by ID
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Draft details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftTransaction'
+
+    patch:
+      tags: [Draft Transactions]
+      summary: Update draft transaction
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftTransactionInput'
+      responses:
+        '200':
+          description: Draft updated
+
+    delete:
+      tags: [Draft Transactions]
+      summary: Delete draft transaction
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: Draft deleted
+
+  # ==================== PROMOTIONS ====================
+  /promotions:
+    get:
+      tags: [Promotions]
+      summary: Get promotions
+      parameters:
+        - in: query
+          name: is_active
+          schema:
+            type: boolean
+        - in: query
+          name: promotion_code
+          schema:
+            type: string
+        - $ref: '#/components/parameters/order'
+      responses:
+        '200':
+          description: List of promotions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Promotion'
+
+    post:
+      tags: [Promotions]
+      summary: Create promotion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromotionInput'
+      responses:
+        '201':
+          description: Promotion created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Promotion'
+
+  /promotions/{id}:
+    get:
+      tags: [Promotions]
+      summary: Get promotion by ID
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Promotion details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Promotion'
+
+    patch:
+      tags: [Promotions]
+      summary: Update promotion
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromotionInput'
+      responses:
+        '200':
+          description: Promotion updated
+
+    delete:
+      tags: [Promotions]
+      summary: Delete promotion
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '204':
+          description: Promotion deleted
+
+  # ==================== VOUCHERS ====================
+  /vouchers:
+    get:
+      tags: [Vouchers]
+      summary: Get vouchers
+      parameters:
+        - in: query
+          name: voucher_code
+          schema:
+            type: string
+        - in: query
+          name: is_active
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/order'
+      responses:
+        '200':
+          description: List of vouchers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Voucher'
+
+    post:
+      tags: [Vouchers]
+      summary: Create voucher
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoucherInput'
+      responses:
+        '201':
+          description: Voucher created
+
+  /patient_vouchers:
+    get:
+      tags: [Vouchers]
+      summary: Get patient vouchers
+      parameters:
+        - in: query
+          name: patient_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: is_used
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of patient vouchers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientVoucher'
+
+    post:
+      tags: [Vouchers]
+      summary: Assign voucher to patient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patient_id, voucher_id]
+              properties:
+                patient_id:
+                  type: string
+                  format: uuid
+                voucher_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Voucher assigned
+
+  # ==================== PATIENT QUEUE ====================
+  /patient_queue:
+    get:
+      tags: [Queue]
+      summary: Get patient queue
+      parameters:
+        - in: query
+          name: queue_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: doctor_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [waiting, in_progress, completed, cancelled]
+        - $ref: '#/components/parameters/order'
+      responses:
+        '200':
+          description: List of queue entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientQueue'
+
+    post:
+      tags: [Queue]
+      summary: Add patient to queue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientQueueInput'
+      responses:
+        '201':
+          description: Patient added to queue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientQueue'
+
+  /patient_queue/{id}:
+    patch:
+      tags: [Queue]
+      summary: Update queue status
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [waiting, in_progress, completed, cancelled]
+      responses:
+        '200':
+          description: Queue updated
+
+  # ==================== EDGE FUNCTIONS ====================
+  /functions/v1/process-payment:
+    post:
+      tags: [Transactions]
+      summary: Process payment (Edge Function)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transaction_id, payment_method, amount]
+              properties:
+                transaction_id:
+                  type: string
+                  format: uuid
+                payment_method:
+                  type: string
+                  enum: [cash, card, transfer]
+                amount:
+                  type: number
+                  format: decimal
+                voucher_code:
+                  type: string
+                promotion_code:
+                  type: string
+      responses:
+        '200':
+          description: Payment processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transaction_id:
+                    type: string
+                  invoice_url:
+                    type: string
+
+  /functions/v1/generate-session-report:
+    post:
+      tags: [Cashier Sessions]
+      summary: Generate session report (Edge Function)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_id]
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Report generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionReport'
+
+  /functions/v1/analytics/dashboard:
+    get:
+      tags: [Analytics]
+      summary: Get dashboard analytics (Edge Function)
+      parameters:
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum: [admin, doctor, cashier]
+          required: true
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revenue:
+                    type: number
+                  transactions:
+                    type: integer
+                  patients:
+                    type: integer
+                  trend:
+                    type: object
+
+  /functions/v1/upload/patient-photo:
+    post:
+      tags: [Storage]
+      summary: Upload patient photo (Edge Function)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, patient_id]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                patient_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Photo uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  path:
+                    type: string
+
+  /functions/v1/upload/medical-document:
+    post:
+      tags: [Storage]
+      summary: Upload medical document (Edge Function)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, medical_record_id]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                medical_record_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Document uploaded
+
+# ==================== COMPONENTS ====================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    select:
+      name: select
+      in: query
+      description: Columns to select
+      schema:
+        type: string
+      example: "*"
+
+    order:
+      name: order
+      in: query
+      description: Sorting order
+      schema:
+        type: string
+      example: "created_at.desc"
+
+    limit:
+      name: limit
+      in: query
+      description: Limit number of results
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+
+    offset:
+      name: offset
+      in: query
+      description: Offset for pagination
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+
+  schemas:
+    # ==================== AUTH ====================
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+            created_at:
+              type: string
+              format: date-time
+        session:
+          type: object
+          properties:
+            access_token:
+              type: string
+            refresh_token:
+              type: string
+            expires_at:
+              type: integer
+
+    # ==================== USER ====================
+    AppRole:
+      type: string
+      enum: [admin, doctor, cashier]
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        phone:
+          type: string
+        avatar_url:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ProfileInput:
+      type: object
+      properties:
+        full_name:
+          type: string
+        phone:
+          type: string
+        avatar_url:
+          type: string
+
+    UserRole:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/AppRole'
+
+    # ==================== PATIENT ====================
+    Patient:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+        nik:
+          type: string
+        full_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female]
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        emergency_contact_name:
+          type: string
+        emergency_contact_phone:
+          type: string
+        photo_url:
+          type: string
+        blood_type:
+          type: string
+        allergies:
+          type: string
+        chronic_diseases:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PatientInput:
+      type: object
+      required: [patient_id, full_name, date_of_birth, gender, phone]
+      properties:
+        patient_id:
+          type: string
+        nik:
+          type: string
+        full_name:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female]
+        address:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        emergency_contact_name:
+          type: string
+        emergency_contact_phone:
+          type: string
+        blood_type:
+          type: string
+        allergies:
+          type: string
+        chronic_diseases:
+          type: string
+
+    # ==================== MEDICAL RECORD ====================
+    MedicalRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        visit_date:
+          type: string
+          format: date-time
+        chief_complaint:
+          type: string
+        diagnosis:
+          type: string
+        treatment:
+          type: string
+        prescription:
+          type: object
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    MedicalRecordInput:
+      type: object
+      required: [patient_id, doctor_id, diagnosis]
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        visit_date:
+          type: string
+          format: date-time
+        chief_complaint:
+          type: string
+        diagnosis:
+          type: string
+        treatment:
+          type: string
+        prescription:
+          type: object
+        notes:
+          type: string
+
+    MedicalRecordAttachment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        medical_record_id:
+          type: string
+          format: uuid
+        file_path:
+          type: string
+        file_type:
+          type: string
+        description:
+          type: string
+        uploaded_at:
+          type: string
+          format: date-time
+
+    # ==================== SERVICE ====================
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        service_code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: decimal
+        category:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ServiceInput:
+      type: object
+      required: [service_code, name, price]
+      properties:
+        service_code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: decimal
+        category:
+          type: string
+        is_active:
+          type: boolean
+
+    # ==================== MEDICINE ====================
+    Medicine:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        medicine_code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        unit_price:
+          type: number
+          format: decimal
+        selling_price:
+          type: number
+          format: decimal
+        stock_quantity:
+          type: integer
+        min_stock_level:
+          type: integer
+        unit:
+          type: string
+        manufacturer:
+          type: string
+        expiry_date:
+          type: string
+          format: date
+        category:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    MedicineInput:
+      type: object
+      required: [medicine_code, name, unit_price, selling_price, stock_quantity]
+      properties:
+        medicine_code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        unit_price:
+          type: number
+          format: decimal
+        selling_price:
+          type: number
+          format: decimal
+        stock_quantity:
+          type: integer
+        min_stock_level:
+          type: integer
+        unit:
+          type: string
+        manufacturer:
+          type: string
+        expiry_date:
+          type: string
+          format: date
+        category:
+          type: string
+
+    # ==================== STOCK ====================
+    StockTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        medicine_id:
+          type: string
+          format: uuid
+        transaction_type:
+          type: string
+          enum: [in, out, adjustment]
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: decimal
+        reference_number:
+          type: string
+        notes:
+          type: string
+        user_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    StockTransactionInput:
+      type: object
+      required: [medicine_id, transaction_type, quantity]
+      properties:
+        medicine_id:
+          type: string
+          format: uuid
+        transaction_type:
+          type: string
+          enum: [in, out, adjustment]
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: decimal
+        reference_number:
+          type: string
+        notes:
+          type: string
+
+    # ==================== CASHIER SESSION ====================
+    CashierSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_number:
+          type: string
+        cashier_id:
+          type: string
+          format: uuid
+        opened_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+        opening_balance:
+          type: number
+          format: decimal
+        closing_balance:
+          type: number
+          format: decimal
+        total_transactions:
+          type: integer
+        total_revenue:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [open, closed]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # ==================== TRANSACTION ====================
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transaction_number:
+          type: string
+        session_id:
+          type: string
+          format: uuid
+        cashier_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        customer_type:
+          type: string
+          enum: [patient, walk-in]
+        subtotal:
+          type: number
+          format: decimal
+        tax:
+          type: number
+          format: decimal
+        discount:
+          type: number
+          format: decimal
+        total_amount:
+          type: number
+          format: decimal
+        payment_method:
+          type: string
+          enum: [cash, card, transfer]
+        payment_status:
+          type: string
+          enum: [pending, completed, cancelled]
+        transaction_date:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TransactionInput:
+      type: object
+      required: [session_id, cashier_id, customer_type, total_amount, payment_method]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        cashier_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        customer_type:
+          type: string
+          enum: [patient, walk-in]
+        subtotal:
+          type: number
+          format: decimal
+        tax:
+          type: number
+          format: decimal
+        discount:
+          type: number
+          format: decimal
+        total_amount:
+          type: number
+          format: decimal
+        payment_method:
+          type: string
+          enum: [cash, card, transfer]
+
+    TransactionItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transaction_id:
+          type: string
+          format: uuid
+        item_type:
+          type: string
+          enum: [service, medicine]
+        item_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: decimal
+        subtotal:
+          type: number
+          format: decimal
+        discount:
+          type: number
+          format: decimal
+        total:
+          type: number
+          format: decimal
+
+    TransactionItemInput:
+      type: object
+      required: [transaction_id, item_type, item_id, quantity, unit_price]
+      properties:
+        transaction_id:
+          type: string
+          format: uuid
+        item_type:
+          type: string
+          enum: [service, medicine]
+        item_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: decimal
+        discount:
+          type: number
+          format: decimal
+
+    # ==================== DRAFT TRANSACTION ====================
+    DraftTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        draft_number:
+          type: string
+        session_id:
+          type: string
+          format: uuid
+        cashier_id:
+          type: string
+          format: uuid
+        customer_type:
+          type: string
+          enum: [patient, walk-in]
+        customer_id:
+          type: string
+          format: uuid
+        customer_name:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+        subtotal:
+          type: number
+          format: decimal
+        tax:
+          type: number
+          format: decimal
+        discount:
+          type: number
+          format: decimal
+        total:
+          type: number
+          format: decimal
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DraftTransactionInput:
+      type: object
+      required: [session_id, cashier_id, customer_type, customer_name, items]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        cashier_id:
+          type: string
+          format: uuid
+        customer_type:
+          type: string
+          enum: [patient, walk-in]
+        customer_id:
+          type: string
+          format: uuid
+        customer_name:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+        subtotal:
+          type: number
+          format: decimal
+        tax:
+          type: number
+          format: decimal
+        discount:
+          type: number
+          format: decimal
+        total:
+          type: number
+          format: decimal
+
+    # ==================== PROMOTION ====================
+    Promotion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        promotion_code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        discount_type:
+          type: string
+          enum: [percentage, fixed]
+        discount_value:
+          type: number
+          format: decimal
+        min_purchase:
+          type: number
+          format: decimal
+        max_discount:
+          type: number
+          format: decimal
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        applicable_services:
+          type: array
+          items:
+            type: string
+        applicable_medicines:
+          type: array
+          items:
+            type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PromotionInput:
+      type: object
+      required: [promotion_code, name, discount_type, discount_value, start_date, end_date]
+      properties:
+        promotion_code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        discount_type:
+          type: string
+          enum: [percentage, fixed]
+        discount_value:
+          type: number
+          format: decimal
+        min_purchase:
+          type: number
+          format: decimal
+        max_discount:
+          type: number
+          format: decimal
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        applicable_services:
+          type: array
+          items:
+            type: string
+        applicable_medicines:
+          type: array
+          items:
+            type: string
+        is_active:
+          type: boolean
+
+    # ==================== VOUCHER ====================
+    Voucher:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        voucher_code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        discount_type:
+          type: string
+          enum: [percentage, fixed]
+        discount_value:
+          type: number
+          format: decimal
+        min_purchase:
+          type: number
+          format: decimal
+        max_discount:
+          type: number
+          format: decimal
+        valid_from:
+          type: string
+          format: date
+        valid_until:
+          type: string
+          format: date
+        max_uses:
+          type: integer
+        current_uses:
+          type: integer
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    VoucherInput:
+      type: object
+      required: [voucher_code, name, discount_type, discount_value, valid_from, valid_until]
+      properties:
+        voucher_code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        discount_type:
+          type: string
+          enum: [percentage, fixed]
+        discount_value:
+          type: number
+          format: decimal
+        min_purchase:
+          type: number
+          format: decimal
+        max_discount:
+          type: number
+          format: decimal
+        valid_from:
+          type: string
+          format: date
+        valid_until:
+          type: string
+          format: date
+        max_uses:
+          type: integer
+
+    PatientVoucher:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        voucher_id:
+          type: string
+          format: uuid
+        assigned_at:
+          type: string
+          format: date-time
+        used_at:
+          type: string
+          format: date-time
+        is_used:
+          type: boolean
+
+    # ==================== QUEUE ====================
+    PatientQueue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        queue_number:
+          type: string
+        queue_date:
+          type: string
+          format: date
+        patient_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        arrival_time:
+          type: string
+          format: date-time
+        call_time:
+          type: string
+          format: date-time
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [waiting, in_progress, completed, cancelled]
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PatientQueueInput:
+      type: object
+      required: [patient_id, doctor_id]
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+
+    # ==================== SESSION REPORT ====================
+    SessionReport:
+      type: object
+      properties:
+        session:
+          $ref: '#/components/schemas/CashierSession'
+        transactions:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              transaction_number:
+                type: string
+              customer_name:
+                type: string
+              total:
+                type: number
+                format: decimal
+              payment_method:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+        summary:
+          type: object
+          properties:
+            total_transactions:
+              type: integer
+            total_revenue:
+              type: number
+              format: decimal
+            payment_methods:
+              type: object
+              properties:
+                cash:
+                  type: number
+                  format: decimal
+                card:
+                  type: number
+                  format: decimal
+                transfer:
+                  type: number
+                  format: decimal
