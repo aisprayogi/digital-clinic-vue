@@ -6,11 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
 export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-
   const handleLogin = async (role: "admin" | "doctor" | "cashier") => {
     setLoading(true);
     // Simulate login
@@ -19,14 +17,12 @@ export default function Login() {
       navigate(role === "admin" ? "/admin" : role === "cashier" ? "/cashier" : "/doctor");
     }, 1000);
   };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-success/5 flex items-center justify-center p-4">
+  return <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-success/5 flex items-center justify-center p-4">
       <div className="w-full max-w-md animate-fade-in">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center gap-2 mb-4">
             <Activity className="h-10 w-10 text-primary" />
-            <h1 className="text-3xl font-bold text-foreground">MediClinic</h1>
+            <h1 className="text-3xl font-bold text-foreground">Widita Farma</h1>
           </div>
           <p className="text-muted-foreground">Sistem Manajemen Klinik Terpadu</p>
         </div>
@@ -47,27 +43,13 @@ export default function Login() {
               <TabsContent value="admin" className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="admin-email">Email</Label>
-                  <Input
-                    id="admin-email"
-                    type="email"
-                    placeholder="admin@klinik.com"
-                    defaultValue="admin@klinik.com"
-                  />
+                  <Input id="admin-email" type="email" placeholder="admin@klinik.com" defaultValue="admin@klinik.com" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="admin-password">Password</Label>
-                  <Input
-                    id="admin-password"
-                    type="password"
-                    placeholder="••••••••"
-                    defaultValue="password"
-                  />
+                  <Input id="admin-password" type="password" placeholder="••••••••" defaultValue="password" />
                 </div>
-                <Button
-                  className="w-full"
-                  onClick={() => handleLogin("admin")}
-                  disabled={loading}
-                >
+                <Button className="w-full" onClick={() => handleLogin("admin")} disabled={loading}>
                   {loading ? "Loading..." : "Login sebagai Admin"}
                 </Button>
               </TabsContent>
@@ -75,27 +57,13 @@ export default function Login() {
               <TabsContent value="doctor" className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="doctor-email">Email</Label>
-                  <Input
-                    id="doctor-email"
-                    type="email"
-                    placeholder="dokter@klinik.com"
-                    defaultValue="dokter@klinik.com"
-                  />
+                  <Input id="doctor-email" type="email" placeholder="dokter@klinik.com" defaultValue="dokter@klinik.com" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="doctor-password">Password</Label>
-                  <Input
-                    id="doctor-password"
-                    type="password"
-                    placeholder="••••••••"
-                    defaultValue="password"
-                  />
+                  <Input id="doctor-password" type="password" placeholder="••••••••" defaultValue="password" />
                 </div>
-                <Button
-                  className="w-full"
-                  onClick={() => handleLogin("doctor")}
-                  disabled={loading}
-                >
+                <Button className="w-full" onClick={() => handleLogin("doctor")} disabled={loading}>
                   {loading ? "Loading..." : "Login sebagai Dokter"}
                 </Button>
               </TabsContent>
@@ -103,27 +71,13 @@ export default function Login() {
               <TabsContent value="cashier" className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="cashier-email">Email</Label>
-                  <Input
-                    id="cashier-email"
-                    type="email"
-                    placeholder="kasir@klinik.com"
-                    defaultValue="kasir@klinik.com"
-                  />
+                  <Input id="cashier-email" type="email" placeholder="kasir@klinik.com" defaultValue="kasir@klinik.com" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="cashier-password">Password</Label>
-                  <Input
-                    id="cashier-password"
-                    type="password"
-                    placeholder="••••••••"
-                    defaultValue="password"
-                  />
+                  <Input id="cashier-password" type="password" placeholder="••••••••" defaultValue="password" />
                 </div>
-                <Button
-                  className="w-full"
-                  onClick={() => handleLogin("cashier")}
-                  disabled={loading}
-                >
+                <Button className="w-full" onClick={() => handleLogin("cashier")} disabled={loading}>
                   {loading ? "Loading..." : "Login sebagai Kasir"}
                 </Button>
               </TabsContent>
@@ -135,6 +89,5 @@ export default function Login() {
           Demo: Gunakan kredensial yang sudah terisi untuk login
         </p>
       </div>
-    </div>
-  );
+    </div>;
 }
