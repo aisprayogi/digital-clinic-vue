@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
-import { Activity, LogOut, User, Menu } from "lucide-react";
+import { LogOut, User, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import logo from "@/assets/logo.png";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -146,7 +147,7 @@ export function Navbar({ userRole, userName = "User" }: NavbarProps) {
             </Sheet>
 
             <Link to={userRole === "admin" ? "/admin" : userRole === "cashier" ? "/cashier" : "/doctor"} className="flex items-center gap-2">
-              <Activity className="h-6 w-6 text-primary" />
+              <img src={logo} alt="MediClinic Logo" className="h-8 w-8" />
               <span className="font-semibold text-lg text-foreground">MediClinic</span>
             </Link>
 
