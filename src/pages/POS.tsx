@@ -1,19 +1,20 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Search, Plus, Trash2, CreditCard, Banknote, Smartphone, Printer, ShoppingCart, Tag, Sparkles, Ticket, Save, FolderOpen } from "lucide-react";
+import { Plus, Trash2, CreditCard, Banknote, Smartphone, ShoppingCart, Tag, Ticket, Save, FolderOpen, User, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DraftTransactionsDialog } from "@/components/DraftTransactionsDialog";
+import { DiscountDialog } from "@/components/DiscountDialog";
+import { ItemSelectionDialog } from "@/components/ItemSelectionDialog";
+import { VoucherSelectionDialog } from "@/components/VoucherSelectionDialog";
 import type { PatientVoucher } from "./VoucherManagement";
-import type { DraftTransaction, DraftTransactionItem } from "@/types/cashier";
+import type { DraftTransaction } from "@/types/cashier";
 
 interface Promotion {
   id: string;
@@ -50,8 +51,6 @@ export default function POS() {
   const [walkInName, setWalkInName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "transfer">("cash");
   const [amountPaid, setAmountPaid] = useState("");
-  const [serviceSearch, setServiceSearch] = useState("");
-  const [medicineSearch, setMedicineSearch] = useState("");
   const [discountType, setDiscountType] = useState<"none" | "percentage" | "fixed" | "promotion">("none");
   const [discountValue, setDiscountValue] = useState("");
   const [discountNote, setDiscountNote] = useState("");
@@ -62,9 +61,12 @@ export default function POS() {
   const [patientVouchers, setPatientVouchers] = useState<PatientVoucher[]>([]);
   const [draftTransactions, setDraftTransactions] = useState<DraftTransaction[]>([]);
   const [showDraftsDialog, setShowDraftsDialog] = useState(false);
+  const [showDiscountDialog, setShowDiscountDialog] = useState(false);
+  const [showItemDialog, setShowItemDialog] = useState(false);
+  const [showVoucherDialog, setShowVoucherDialog] = useState(false);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
 
-  // Sample promotions - same as in PromotionManagement
+  // Sample promotions
   const promotions: Promotion[] = [
     {
       id: "promo1",
@@ -110,7 +112,6 @@ export default function POS() {
     { id: "m4", name: "OBH Combi", price: 25000, stock: 45 },
   ];
 
-  // Sample patient vouchers - would come from VoucherManagement in real app
   const allPatientVouchers: PatientVoucher[] = [
     {
       id: "pv1",
@@ -158,7 +159,6 @@ export default function POS() {
     const service = services.find(s => s.id === serviceId);
     if (!service) return;
 
-    // Check if item already exists
     const existingItem = billItems.find(item => item.name === service.name && item.type === "service");
     if (existingItem) {
       updateQuantity(existingItem.id, existingItem.quantity + 1);
@@ -188,7 +188,6 @@ export default function POS() {
     const medicine = medicines.find(m => m.id === medicineId);
     if (!medicine) return;
 
-    // Check if item already exists
     const existingItem = billItems.find(item => item.name === medicine.name && item.type === "medicine");
     const newQty = existingItem ? existingItem.quantity + qty : qty;
 
@@ -240,15 +239,14 @@ export default function POS() {
 
   // Check for applicable automatic promotions
   useEffect(() => {
-    if (discountType === "promotion" && appliedPromotion) return; // Don't auto-apply if manually selected
-    if (discountType !== "none") return; // Don't auto-apply if manual discount is set
+    if (discountType === "promotion" && appliedPromotion) return;
+    if (discountType !== "none") return;
 
     const now = new Date();
     const activePromotions = promotions.filter(promo => {
       if (!promo.isActive) return false;
       if (now < promo.startDate || now > promo.endDate) return false;
       
-      // Check if promo applies to current items
       const hasApplicableItems = billItems.some(item => {
         if (item.type === "service" && promo.applicableServices.length > 0) {
           const serviceId = services.find(s => s.name === item.name)?.id;
@@ -258,22 +256,18 @@ export default function POS() {
           const medicineId = medicines.find(m => m.name === item.name)?.id;
           return medicineId && promo.applicableMedicines.includes(medicineId);
         }
-        // If promo has no specific items, it applies to all
         return promo.applicableServices.length === 0 && promo.applicableMedicines.length === 0;
       });
 
       if (!hasApplicableItems) return false;
 
-      // Check minimum purchase
       const currentSubtotal = billItems.reduce((sum, item) => sum + item.total, 0);
       if (promo.minPurchase && currentSubtotal < promo.minPurchase) return false;
 
       return true;
     });
 
-    // Apply the best promotion automatically
     if (activePromotions.length > 0) {
-      // Sort by highest discount value
       const bestPromo = activePromotions.sort((a, b) => {
         const aDiscount = a.discountType === "percentage" 
           ? subtotal * (a.discountValue / 100) 
@@ -386,7 +380,6 @@ export default function POS() {
       description: `Transaksi ${draft.draftNumber} berhasil disimpan`,
     });
 
-    // Reset form
     resetForm();
   };
 
@@ -483,21 +476,17 @@ export default function POS() {
       description: `Tagihan sebesar ${formatRupiah(total)} telah diproses`,
     });
 
-    // Reduce voucher session if used
     if (selectedVoucher) {
       const voucher = patientVouchers.find(v => v.id === selectedVoucher);
       if (voucher) {
-        // In real app, update voucher in database
         console.log(`Reducing voucher ${voucher.id} by 1 session`);
       }
     }
 
-    // If this was a draft, remove it
     if (currentDraftId) {
       setDraftTransactions(drafts => drafts.filter(d => d.id !== currentDraftId));
     }
 
-    // Reset form
     resetForm();
   };
 
@@ -509,17 +498,9 @@ export default function POS() {
     }).format(amount);
   };
 
-  const filteredServices = services.filter(s => 
-    s.name.toLowerCase().includes(serviceSearch.toLowerCase())
-  );
-
-  const filteredMedicines = medicines.filter(m => 
-    m.name.toLowerCase().includes(medicineSearch.toLowerCase())
-  );
-
-  const applyPromoCode = () => {
+  const applyPromoCode = (code: string) => {
     const promo = promotions.find(p => 
-      p.code.toUpperCase() === promoCode.toUpperCase() && 
+      p.code.toUpperCase() === code.toUpperCase() && 
       p.isActive &&
       new Date() >= p.startDate &&
       new Date() <= p.endDate
@@ -534,7 +515,6 @@ export default function POS() {
       return;
     }
 
-    // Check minimum purchase
     if (promo.minPurchase && subtotal < promo.minPurchase) {
       toast({
         title: "Minimum pembelian belum terpenuhi",
@@ -555,6 +535,21 @@ export default function POS() {
     });
   };
 
+  const handleDiscountChange = (
+    type: "none" | "percentage" | "fixed" | "promotion",
+    value: string,
+    note: string,
+    promo?: Promotion
+  ) => {
+    setDiscountType(type);
+    setDiscountValue(value);
+    setDiscountNote(note);
+    if (promo) {
+      setAppliedPromotion(promo);
+      setSelectedPromotion(promo.id);
+    }
+  };
+
   const availablePromotions = promotions.filter(promo => {
     if (!promo.isActive) return false;
     const now = new Date();
@@ -563,584 +558,349 @@ export default function POS() {
     return true;
   });
 
+  const voucherCount = patientVouchers.length;
+  const hasDiscount = discount > 0;
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background">
       <Navbar userRole="admin" userName="Admin Klinik" />
       
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">Point of Sale (Kasir)</h1>
-              <p className="text-muted-foreground">
-                Proses pembayaran dan tagihan pasien
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowDraftsDialog(true)}
-              >
-                <FolderOpen className="mr-2 h-4 w-4" />
-                Buka Draft ({draftTransactions.length})
-              </Button>
-              {billItems.length > 0 && (
+      {/* Fixed Single Page Layout - No Scroll */}
+      <main className="flex-1 overflow-hidden">
+        <div className="h-full flex flex-col">
+          {/* Header - Fixed */}
+          <div className="border-b bg-card px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Point of Sale</h1>
+                <p className="text-sm text-muted-foreground">Kasir</p>
+              </div>
+              <div className="flex gap-2">
                 <Button
+                  size="sm"
                   variant="outline"
-                  onClick={handleSaveDraft}
+                  onClick={() => setShowDraftsDialog(true)}
                 >
-                  <Save className="mr-2 h-4 w-4" />
-                  {currentDraftId ? "Update Draft" : "Simpan Draft"}
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  Draft ({draftTransactions.length})
                 </Button>
-              )}
+                {billItems.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSaveDraft}
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    {currentDraftId ? "Update" : "Simpan"}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Add Items */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Customer Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Search className="h-5 w-5" />
-                  Data Pembeli
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant={customerType === "patient" ? "default" : "outline"}
-                    onClick={() => setCustomerType("patient")}
-                    className="touch-manipulation"
-                  >
-                    Pasien
-                  </Button>
-                  <Button
-                    variant={customerType === "walk-in" ? "default" : "outline"}
-                    onClick={() => setCustomerType("walk-in")}
-                    className="touch-manipulation"
-                  >
-                    Pembeli Umum
-                  </Button>
-                </div>
-
-                {customerType === "patient" ? (
-                  <Select value={selectedPatient} onValueChange={setSelectedPatient}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Cari nama atau nomor rekam medis pasien" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="p1">Ahmad Rizki - RM001</SelectItem>
-                      <SelectItem value="p2">Siti Nurhaliza - RM002</SelectItem>
-                      <SelectItem value="p3">Dewi Lestari - RM003</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    placeholder="Nama pembeli"
-                    value={walkInName}
-                    onChange={(e) => setWalkInName(e.target.value)}
-                  />
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Patient Vouchers */}
-            {customerType === "patient" && patientVouchers.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Ticket className="h-5 w-5" />
-                    Voucher Pasien
+          {/* Main Content - Grid Layout */}
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 overflow-hidden">
+            {/* Left Section - Customer & Actions */}
+            <div className="flex flex-col gap-4 overflow-hidden">
+              {/* Customer Selection */}
+              <Card className="shrink-0">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Pembeli
                   </CardTitle>
-                  <CardDescription>Voucher yang tersedia untuk pasien ini</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="grid gap-2">
-                    {patientVouchers.map((voucher) => (
-                      <button
-                        key={voucher.id}
-                        onClick={() => {
-                          if (selectedVoucher === voucher.id) {
-                            setSelectedVoucher("");
-                          } else {
-                            setSelectedVoucher(voucher.id);
-                          }
-                        }}
-                        className={`
-                          p-4 border rounded-lg text-left transition-all touch-manipulation
-                          ${selectedVoucher === voucher.id 
-                            ? 'border-primary bg-primary/5' 
-                            : 'hover:border-primary/50'
-                          }
-                        `}
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="font-medium">{voucher.packageName}</div>
-                          <Badge variant={selectedVoucher === voucher.id ? "default" : "outline"}>
-                            {selectedVoucher === voucher.id ? "Terpilih" : "Pilih"}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Sisa: {voucher.remainingSessions} / {voucher.totalSessions} sesi
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Berlaku sampai: {new Date(voucher.expiryDate).toLocaleDateString('id-ID')}
-                        </div>
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      size="sm"
+                      variant={customerType === "patient" ? "default" : "outline"}
+                      onClick={() => setCustomerType("patient")}
+                    >
+                      Pasien
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={customerType === "walk-in" ? "default" : "outline"}
+                      onClick={() => setCustomerType("walk-in")}
+                    >
+                      Umum
+                    </Button>
                   </div>
-                  {selectedVoucher && (
-                    <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Sparkles className="h-4 w-4 text-primary" />
-                        <span className="font-medium">Voucher akan digunakan untuk layanan ini</span>
+
+                  {customerType === "patient" ? (
+                    <Select value={selectedPatient} onValueChange={setSelectedPatient}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Pilih pasien" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="p1">Ahmad Rizki - RM001</SelectItem>
+                        <SelectItem value="p2">Siti Nurhaliza - RM002</SelectItem>
+                        <SelectItem value="p3">Dewi Lestari - RM003</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      className="h-9"
+                      placeholder="Nama pembeli"
+                      value={walkInName}
+                      onChange={(e) => setWalkInName(e.target.value)}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Quick Actions */}
+              <Card className="flex-1 flex flex-col overflow-hidden">
+                <CardHeader className="pb-3 shrink-0">
+                  <CardTitle className="text-sm">Aksi Cepat</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col gap-2 overflow-auto">
+                  <Button
+                    variant="outline"
+                    className="justify-start"
+                    onClick={() => setShowItemDialog(true)}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Tambah Item
+                  </Button>
+                  
+                  {customerType === "patient" && voucherCount > 0 && (
+                    <Button
+                      variant="outline"
+                      className="justify-start"
+                      onClick={() => setShowVoucherDialog(true)}
+                    >
+                      <Ticket className="mr-2 h-4 w-4" />
+                      Voucher ({voucherCount})
+                      {selectedVoucher && <Badge className="ml-auto" variant="default">Aktif</Badge>}
+                    </Button>
+                  )}
+
+                  {billItems.length > 0 && (
+                    <Button
+                      variant="outline"
+                      className="justify-start"
+                      onClick={() => setShowDiscountDialog(true)}
+                    >
+                      <Tag className="mr-2 h-4 w-4" />
+                      Diskon & Promo
+                      {hasDiscount && <Badge className="ml-auto" variant="default">Aktif</Badge>}
+                    </Button>
+                  )}
+
+                  {appliedPromotion && discountType === "promotion" && !selectedPromotion && (
+                    <div className="p-2 bg-primary/10 border border-primary/20 rounded-lg text-xs">
+                      <div className="flex items-start gap-2">
+                        <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-medium">Promo Otomatis</div>
+                          <div className="text-muted-foreground">{appliedPromotion.name}</div>
+                        </div>
                       </div>
                     </div>
                   )}
                 </CardContent>
               </Card>
-            )}
+            </div>
 
-            {/* Add Service - Only for patients */}
-            {customerType === "patient" && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Tambah Layanan</CardTitle>
+            {/* Middle Section - Bill Items */}
+            <div className="flex flex-col overflow-hidden">
+              <Card className="flex-1 flex flex-col overflow-hidden">
+                <CardHeader className="pb-3 shrink-0">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    Tagihan ({billItems.length})
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Cari layanan..."
-                    value={serviceSearch}
-                    onChange={(e) => setServiceSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
-                  {filteredServices.map((service) => (
-                    <Button
-                      key={service.id}
-                      variant="outline"
-                      className="justify-start h-auto p-4 hover:bg-primary/10 active:scale-95 transition-all touch-manipulation"
-                      onClick={() => addService(service.id)}
-                    >
-                      <div className="text-left w-full">
-                        <div className="font-medium">{service.name}</div>
-                        <div className="text-sm text-muted-foreground">{formatRupiah(service.price)}</div>
-                      </div>
-                    </Button>
-                  ))}
-                </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Add Medicine */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Tambah Obat</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Cari obat..."
-                    value={medicineSearch}
-                    onChange={(e) => setMedicineSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                  {filteredMedicines.map((medicine) => (
-                    <div key={medicine.id} className="flex items-center gap-2 p-3 border rounded-lg hover:border-primary transition-colors">
-                      <button
-                        type="button"
-                        className="flex-1 text-left touch-manipulation active:scale-98 transition-transform"
-                        onClick={() => addMedicine(medicine.id, 1)}
-                      >
-                        <div className="font-medium">{medicine.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {formatRupiah(medicine.price)} • Stok: {medicine.stock}
-                        </div>
-                      </button>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min="1"
-                          max={medicine.stock}
-                          placeholder="Qty"
-                          className="w-16 h-9 text-center touch-manipulation"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              const qty = parseInt((e.target as HTMLInputElement).value);
-                              if (qty > 0) {
-                                addMedicine(medicine.id, qty);
-                                (e.target as HTMLInputElement).value = '';
-                              }
-                            }
-                          }}
-                        />
-                        <Button
-                          size="sm"
-                          className="h-9 touch-manipulation active:scale-95 transition-transform"
-                          onClick={(e) => {
-                            const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
-                            const qty = parseInt(input.value);
-                            if (qty > 0) {
-                              addMedicine(medicine.id, qty);
-                              input.value = '';
-                            }
-                          }}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
+                <CardContent className="flex-1 flex flex-col overflow-hidden p-0">
+                  {billItems.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center text-center py-8 text-muted-foreground text-sm">
+                      Belum ada item
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column - Bill & Payment */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5" />
-                  Tagihan
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {billItems.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Belum ada item dalam tagihan
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                      {billItems.map((item) => (
-                        <div key={item.id} className="flex items-start gap-2 p-2 border rounded">
-                          <div className="flex-1">
-                            <div className="font-medium text-sm">{item.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatRupiah(item.price)} x {item.quantity}
+                  ) : (
+                    <div className="flex-1 overflow-y-auto px-6 pb-4">
+                      <div className="space-y-2">
+                        {billItems.map((item) => (
+                          <div key={item.id} className="flex items-start gap-2 p-2 border rounded-lg hover:bg-muted/50 transition-colors">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">{item.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatRupiah(item.price)} × {item.quantity}
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-sm font-medium">{formatRupiah(item.total)}</div>
-                          {item.type === "medicine" && (
-                            <Input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
-                              className="w-14 h-8 text-xs"
-                            />
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeItem(item.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <span>{formatRupiah(subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">PPN (10%)</span>
-                        <span>{formatRupiah(tax)}</span>
-                      </div>
-                      {discount > 0 && (
-                        <div className="flex justify-between text-sm text-success">
-                          <span>Diskon {discountNote && `(${discountNote})`}</span>
-                          <span>-{formatRupiah(discount)}</span>
-                        </div>
-                      )}
-                      <Separator />
-                      <div className="flex justify-between font-bold text-lg">
-                        <span>Total</span>
-                        <span className="text-primary">{formatRupiah(total)}</span>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {billItems.length > 0 && (
-              <>
-                {/* Discount Management */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Tag className="h-5 w-5" />
-                      Diskon & Promo
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Auto-applied promotion notice */}
-                    {appliedPromotion && discountType === "promotion" && !selectedPromotion && (
-                      <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg flex items-start gap-2">
-                        <Sparkles className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <div className="font-medium text-sm">Promo Otomatis Diterapkan!</div>
-                          <div className="text-xs text-muted-foreground">{appliedPromotion.name}</div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setDiscountType("none");
-                            setAppliedPromotion(null);
-                            setDiscountNote("");
-                          }}
-                        >
-                          Hapus
-                        </Button>
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      <Label>Tipe Diskon</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          variant={discountType === "none" ? "default" : "outline"}
-                          onClick={() => {
-                            setDiscountType("none");
-                            setDiscountValue("");
-                            setDiscountNote("");
-                            setAppliedPromotion(null);
-                          }}
-                          className="touch-manipulation"
-                          size="sm"
-                        >
-                          Tidak Ada
-                        </Button>
-                        <Button
-                          variant={discountType === "promotion" ? "default" : "outline"}
-                          onClick={() => {
-                            setDiscountType("promotion");
-                            setDiscountValue("");
-                          }}
-                          className="touch-manipulation"
-                          size="sm"
-                        >
-                          <Tag className="h-3 w-3 mr-1" />
-                          Promo
-                        </Button>
-                        <Button
-                          variant={discountType === "percentage" ? "default" : "outline"}
-                          onClick={() => {
-                            setDiscountType("percentage");
-                            setAppliedPromotion(null);
-                          }}
-                          className="touch-manipulation"
-                          size="sm"
-                        >
-                          Persentase
-                        </Button>
-                        <Button
-                          variant={discountType === "fixed" ? "default" : "outline"}
-                          onClick={() => {
-                            setDiscountType("fixed");
-                            setAppliedPromotion(null);
-                          }}
-                          className="touch-manipulation"
-                          size="sm"
-                        >
-                          Nominal
-                        </Button>
-                      </div>
-                    </div>
-
-                    {discountType === "promotion" && (
-                      <>
-                        <div className="space-y-2">
-                          <Label>Pilih Promo</Label>
-                          <Select
-                            value={selectedPromotion}
-                            onValueChange={(value) => {
-                              setSelectedPromotion(value);
-                              const promo = promotions.find(p => p.id === value);
-                              if (promo) {
-                                setAppliedPromotion(promo);
-                                setDiscountNote(`${promo.name} (${promo.code})`);
-                              }
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pilih promo yang tersedia" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availablePromotions.map((promo) => (
-                                <SelectItem key={promo.id} value={promo.id}>
-                                  {promo.name} - {promo.discountType === "percentage" 
-                                    ? `${promo.discountValue}%` 
-                                    : formatRupiah(promo.discountValue)
-                                  }
-                                </SelectItem>
-                              ))}
-                              {availablePromotions.length === 0 && (
-                                <SelectItem value="none" disabled>Tidak ada promo tersedia</SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="relative">
-                          <Label>Atau Masukkan Kode Promo</Label>
-                          <div className="flex gap-2 mt-2">
-                            <Input
-                              placeholder="Masukkan kode promo"
-                              value={promoCode}
-                              onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  applyPromoCode();
-                                }
-                              }}
-                            />
-                            <Button onClick={applyPromoCode} className="touch-manipulation">
-                              Terapkan
+                            <div className="text-sm font-medium shrink-0">{formatRupiah(item.total)}</div>
+                            {item.type === "medicine" && (
+                              <Input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
+                                className="w-12 h-7 text-xs shrink-0"
+                              />
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 shrink-0"
+                              onClick={() => removeItem(item.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
-                        </div>
-                      </>
-                    )}
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
-                    {(discountType === "percentage" || discountType === "fixed") && (
-                      <>
-                        <div className="space-y-2">
-                          <Label>
-                            Nilai Diskon {discountType === "percentage" ? "(%)" : "(Rp)"}
-                          </Label>
-                          <Input
-                            type="number"
-                            placeholder={discountType === "percentage" ? "0-100" : "Nominal"}
-                            value={discountValue}
-                            onChange={(e) => setDiscountValue(e.target.value)}
-                            max={discountType === "percentage" ? "100" : undefined}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Catatan Diskon (Opsional)</Label>
-                          <Input
-                            placeholder="Contoh: Promo Hari Raya, Member VIP"
-                            value={discountNote}
-                            onChange={(e) => setDiscountNote(e.target.value)}
-                          />
-                        </div>
-                      </>
-                    )}
+            {/* Right Section - Summary & Payment */}
+            <div className="flex flex-col gap-4 overflow-hidden">
+              {/* Summary */}
+              <Card className="shrink-0">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Ringkasan</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatRupiah(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">PPN (10%)</span>
+                    <span>{formatRupiah(tax)}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div className="flex justify-between text-sm text-success">
+                      <span>Diskon</span>
+                      <span>-{formatRupiah(discount)}</span>
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex justify-between font-bold text-base">
+                    <span>Total</span>
+                    <span className="text-primary">{formatRupiah(total)}</span>
+                  </div>
+                </CardContent>
+              </Card>
 
-                    {discount > 0 && (
-                      <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
-                        <div className="text-sm text-muted-foreground">Total Diskon</div>
-                        <div className="text-xl font-bold text-success">{formatRupiah(discount)}</div>
-                        {appliedPromotion && appliedPromotion.maxDiscount && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Maks. {formatRupiah(appliedPromotion.maxDiscount)}
+              {/* Payment */}
+              {billItems.length > 0 && (
+                <Card className="flex-1 flex flex-col overflow-hidden">
+                  <CardHeader className="pb-3 shrink-0">
+                    <CardTitle className="text-sm">Pembayaran</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1 flex flex-col gap-3 overflow-auto">
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        size="sm"
+                        variant={paymentMethod === "cash" ? "default" : "outline"}
+                        onClick={() => setPaymentMethod("cash")}
+                        className="flex-col h-auto py-2"
+                      >
+                        <Banknote className="h-4 w-4 mb-1" />
+                        <span className="text-xs">Tunai</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={paymentMethod === "card" ? "default" : "outline"}
+                        onClick={() => setPaymentMethod("card")}
+                        className="flex-col h-auto py-2"
+                      >
+                        <CreditCard className="h-4 w-4 mb-1" />
+                        <span className="text-xs">Kartu</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={paymentMethod === "transfer" ? "default" : "outline"}
+                        onClick={() => setPaymentMethod("transfer")}
+                        className="flex-col h-auto py-2"
+                      >
+                        <Smartphone className="h-4 w-4 mb-1" />
+                        <span className="text-xs">Transfer</span>
+                      </Button>
+                    </div>
+
+                    {paymentMethod === "cash" && (
+                      <div className="space-y-2">
+                        <Input
+                          type="number"
+                          placeholder="Jumlah bayar"
+                          value={amountPaid}
+                          onChange={(e) => setAmountPaid(e.target.value)}
+                          className="h-9"
+                        />
+                        {change > 0 && (
+                          <div className="p-2 bg-success/10 border border-success/20 rounded text-xs">
+                            <div className="flex justify-between font-medium">
+                              <span>Kembalian:</span>
+                              <span className="text-success">{formatRupiah(change)}</span>
+                            </div>
                           </div>
                         )}
                       </div>
                     )}
-                  </CardContent>
-                </Card>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Metode Pembayaran</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Pilih Metode</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Button
-                        variant={paymentMethod === "cash" ? "default" : "outline"}
-                        onClick={() => setPaymentMethod("cash")}
-                        className="flex-col h-auto py-3"
-                      >
-                        <Banknote className="h-5 w-5 mb-1" />
-                        <span className="text-xs">Tunai</span>
-                      </Button>
-                      <Button
-                        variant={paymentMethod === "card" ? "default" : "outline"}
-                        onClick={() => setPaymentMethod("card")}
-                        className="flex-col h-auto py-3"
-                      >
-                        <CreditCard className="h-5 w-5 mb-1" />
-                        <span className="text-xs">Kartu</span>
-                      </Button>
-                      <Button
-                        variant={paymentMethod === "transfer" ? "default" : "outline"}
-                        onClick={() => setPaymentMethod("transfer")}
-                        className="flex-col h-auto py-3"
-                      >
-                        <Smartphone className="h-5 w-5 mb-1" />
-                        <span className="text-xs">Transfer</span>
-                      </Button>
-                    </div>
-                  </div>
-
-                  {paymentMethod === "cash" && (
-                    <>
-                      <div className="space-y-2">
-                        <Label>Jumlah Bayar</Label>
-                        <Input
-                          type="number"
-                          placeholder="Masukkan jumlah bayar"
-                          value={amountPaid}
-                          onChange={(e) => setAmountPaid(e.target.value)}
-                        />
-                      </div>
-                      {amountPaid && parseFloat(amountPaid) >= total && (
-                        <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
-                          <div className="text-sm text-muted-foreground">Kembalian</div>
-                          <div className="text-xl font-bold text-success">{formatRupiah(change)}</div>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  <div className="space-y-2 pt-4">
-                    <Button className="w-full" size="lg" onClick={handleProcessPayment}>
-                      <CreditCard className="mr-2 h-5 w-5" />
+                    <Button
+                      className="w-full mt-auto"
+                      onClick={handleProcessPayment}
+                      disabled={billItems.length === 0}
+                    >
                       Proses Pembayaran
                     </Button>
-                    <Button variant="outline" className="w-full">
-                      <Printer className="mr-2 h-4 w-4" />
-                      Cetak Struk
-                    </Button>
-                  </div>
                   </CardContent>
                 </Card>
-              </>
-            )}
+              )}
+            </div>
           </div>
         </div>
-
-        {/* Draft Transactions Dialog */}
-        <DraftTransactionsDialog
-          open={showDraftsDialog}
-          onOpenChange={setShowDraftsDialog}
-          drafts={draftTransactions}
-          onLoadDraft={handleLoadDraft}
-          onDeleteDraft={handleDeleteDraft}
-        />
       </main>
+
+      {/* Dialogs */}
+      <DraftTransactionsDialog
+        open={showDraftsDialog}
+        onOpenChange={setShowDraftsDialog}
+        drafts={draftTransactions}
+        onLoadDraft={handleLoadDraft}
+        onDeleteDraft={handleDeleteDraft}
+      />
+
+      <DiscountDialog
+        open={showDiscountDialog}
+        onOpenChange={setShowDiscountDialog}
+        discountType={discountType}
+        discountValue={discountValue}
+        discountNote={discountNote}
+        promoCode={promoCode}
+        selectedPromotion={selectedPromotion}
+        appliedPromotion={appliedPromotion}
+        availablePromotions={availablePromotions}
+        subtotal={subtotal}
+        onDiscountChange={handleDiscountChange}
+        onPromoCodeApply={applyPromoCode}
+        formatRupiah={formatRupiah}
+      />
+
+      <ItemSelectionDialog
+        open={showItemDialog}
+        onOpenChange={setShowItemDialog}
+        services={services}
+        medicines={medicines}
+        customerType={customerType}
+        onAddService={addService}
+        onAddMedicine={addMedicine}
+        formatRupiah={formatRupiah}
+      />
+
+      <VoucherSelectionDialog
+        open={showVoucherDialog}
+        onOpenChange={setShowVoucherDialog}
+        vouchers={patientVouchers}
+        selectedVoucher={selectedVoucher}
+        onSelectVoucher={setSelectedVoucher}
+      />
     </div>
   );
 }
