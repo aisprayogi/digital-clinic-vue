@@ -24,6 +24,7 @@ interface ItemSelectionDialogProps {
   services: Service[];
   medicines: Medicine[];
   customerType: "patient" | "walk-in";
+  initialTab?: "services" | "medicines";
   onAddService: (serviceId: string) => void;
   onAddMedicine: (medicineId: string, qty: number) => void;
   formatRupiah: (amount: number) => string;
@@ -35,6 +36,7 @@ export function ItemSelectionDialog({
   services,
   medicines,
   customerType,
+  initialTab = "services",
   onAddService,
   onAddMedicine,
   formatRupiah
@@ -70,7 +72,7 @@ export function ItemSelectionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue={customerType === "patient" ? "services" : "medicines"} className="w-full">
+        <Tabs defaultValue={initialTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             {customerType === "patient" && <TabsTrigger value="services">Layanan</TabsTrigger>}
             <TabsTrigger value="medicines" className={customerType === "walk-in" ? "col-span-2" : ""}>

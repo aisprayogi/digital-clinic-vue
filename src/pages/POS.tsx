@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, CreditCard, Banknote, Smartphone, ShoppingCart, Tag, Ticket, Save, FolderOpen, User, Sparkles } from "lucide-react";
+import { Plus, Trash2, CreditCard, Banknote, Smartphone, ShoppingCart, Tag, Ticket, Save, FolderOpen, User, Sparkles, Stethoscope, Pill } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DraftTransactionsDialog } from "@/components/DraftTransactionsDialog";
 import { DiscountDialog } from "@/components/DiscountDialog";
@@ -63,6 +63,7 @@ export default function POS() {
   const [showDraftsDialog, setShowDraftsDialog] = useState(false);
   const [showDiscountDialog, setShowDiscountDialog] = useState(false);
   const [showItemDialog, setShowItemDialog] = useState(false);
+  const [itemDialogType, setItemDialogType] = useState<"services" | "medicines">("services");
   const [showVoucherDialog, setShowVoucherDialog] = useState(false);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
 
@@ -653,17 +654,42 @@ export default function POS() {
               {/* Quick Actions */}
               <Card className="flex-1 flex flex-col overflow-hidden">
                 <CardHeader className="pb-3 shrink-0">
-                  <CardTitle className="text-sm">Aksi Cepat</CardTitle>
+                  <CardTitle className="text-sm">Tambah Item</CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col gap-2 overflow-auto">
+                  {customerType === "patient" && (
+                    <Button
+                      variant="outline"
+                      className="justify-start h-auto py-3"
+                      onClick={() => {
+                        setItemDialogType("services");
+                        setShowItemDialog(true);
+                      }}
+                    >
+                      <Stethoscope className="mr-2 h-5 w-5" />
+                      <div className="text-left">
+                        <div className="font-medium">Layanan</div>
+                        <div className="text-xs text-muted-foreground">Konsultasi, Tindakan</div>
+                      </div>
+                    </Button>
+                  )}
+                  
                   <Button
                     variant="outline"
-                    className="justify-start"
-                    onClick={() => setShowItemDialog(true)}
+                    className="justify-start h-auto py-3"
+                    onClick={() => {
+                      setItemDialogType("medicines");
+                      setShowItemDialog(true);
+                    }}
                   >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Tambah Item
+                    <Pill className="mr-2 h-5 w-5" />
+                    <div className="text-left">
+                      <div className="font-medium">Obat</div>
+                      <div className="text-xs text-muted-foreground">Resep & Bebas</div>
+                    </div>
                   </Button>
+
+                  <Separator className="my-1" />
                   
                   {customerType === "patient" && voucherCount > 0 && (
                     <Button
@@ -690,7 +716,7 @@ export default function POS() {
                   )}
 
                   {appliedPromotion && discountType === "promotion" && !selectedPromotion && (
-                    <div className="p-2 bg-primary/10 border border-primary/20 rounded-lg text-xs">
+                    <div className="p-2 bg-primary/10 border border-primary/20 rounded-lg text-xs mt-2">
                       <div className="flex items-start gap-2">
                         <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                         <div>
@@ -889,6 +915,7 @@ export default function POS() {
         services={services}
         medicines={medicines}
         customerType={customerType}
+        initialTab={itemDialogType}
         onAddService={addService}
         onAddMedicine={addMedicine}
         formatRupiah={formatRupiah}
