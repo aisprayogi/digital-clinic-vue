@@ -16,6 +16,7 @@ import POS from "./pages/POS";
 import StockManagement from "./pages/StockManagement";
 import PromotionManagement from "./pages/PromotionManagement";
 import VoucherManagement from "./pages/VoucherManagement";
+import TransactionHistory from "./pages/TransactionHistory";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/stock" element={<StockManagement />} />
           <Route path="/promotions" element={<PromotionManagement />} />
           <Route path="/vouchers" element={<VoucherManagement />} />
+          <Route path="/transactions" element={<TransactionHistory />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

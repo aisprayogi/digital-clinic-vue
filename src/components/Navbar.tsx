@@ -102,6 +102,14 @@ export function Navbar({ userRole, userName = "User" }: NavbarProps) {
                           Paket Voucher
                         </Button>
                       </Link>
+                      <Link to="/transactions" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/transactions" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Riwayat Transaksi
+                        </Button>
+                      </Link>
                     </>
                   )}
                   {userRole === "doctor" && (
@@ -138,6 +146,14 @@ export function Navbar({ userRole, userName = "User" }: NavbarProps) {
                           className="w-full justify-start"
                         >
                           Stok Obat
+                        </Button>
+                      </Link>
+                      <Link to="/transactions" onClick={() => setMobileMenuOpen(false)}>
+                        <Button
+                          variant={location.pathname === "/transactions" ? "default" : "ghost"}
+                          className="w-full justify-start"
+                        >
+                          Riwayat Transaksi
                         </Button>
                       </Link>
                     </>
@@ -209,6 +225,14 @@ export function Navbar({ userRole, userName = "User" }: NavbarProps) {
                     Paket Voucher
                   </Button>
                 </Link>
+                <Link to="/transactions">
+                  <Button
+                    variant={location.pathname === "/transactions" ? "default" : "ghost"}
+                    size="sm"
+                  >
+                    Riwayat Transaksi
+                  </Button>
+                </Link>
               </div>
             )}
 
@@ -249,6 +273,14 @@ export function Navbar({ userRole, userName = "User" }: NavbarProps) {
                     size="sm"
                   >
                     Stok Obat
+                  </Button>
+                </Link>
+                <Link to="/transactions">
+                  <Button
+                    variant={location.pathname === "/transactions" ? "default" : "ghost"}
+                    size="sm"
+                  >
+                    Riwayat Transaksi
                   </Button>
                 </Link>
               </div>
