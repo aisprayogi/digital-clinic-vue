@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 interface Service {
   id: string;
@@ -43,6 +44,7 @@ export function ItemSelectionDialog({
 }: ItemSelectionDialogProps) {
   const [serviceSearch, setServiceSearch] = useState("");
   const [medicineSearch, setMedicineSearch] = useState("");
+  const [addedItems, setAddedItems] = useState<Array<{ type: 'service' | 'medicine', id: string, name: string, qty?: number }>>([]);
 
   const filteredServices = services.filter(s => 
     s.name.toLowerCase().includes(serviceSearch.toLowerCase())
@@ -53,24 +55,57 @@ export function ItemSelectionDialog({
   );
 
   const handleAddService = (serviceId: string) => {
-    onAddService(serviceId);
+    const service = services.find(s => s.id === serviceId);
+    if (service) {
+      onAddService(serviceId);
+      setAddedItems(prev => [...prev, { type: 'service', id: serviceId, name: service.name }]);
+    }
   };
 
   const handleAddMedicine = (medicineId: string, inputElement?: HTMLInputElement) => {
     const qty = inputElement ? parseInt(inputElement.value) || 1 : 1;
-    onAddMedicine(medicineId, qty);
+    const medicine = medicines.find(m => m.id === medicineId);
+    if (medicine) {
+      onAddMedicine(medicineId, qty);
+      setAddedItems(prev => [...prev, { type: 'medicine', id: medicineId, name: medicine.name, qty }]);
+    }
     if (inputElement) inputElement.value = '';
   };
 
+  const handleClose = () => {
+    setAddedItems([]);
+    setServiceSearch("");
+    setMedicineSearch("");
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
-        <DialogHeader>
-          <DialogTitle>Tambah Item</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="left" className="w-[500px] sm:w-[600px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Tambah Item</SheetTitle>
+          <SheetDescription>
             Pilih layanan atau obat untuk ditambahkan ke tagihan
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
+
+        {addedItems.length > 0 && (
+          <div className="mt-4 p-3 bg-primary/10 rounded-lg space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Item Ditambahkan ({addedItems.length})</span>
+              <Button variant="ghost" size="sm" onClick={handleClose}>
+                Selesai & Tutup
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {addedItems.map((item, idx) => (
+                <Badge key={idx} variant="secondary" className="text-xs">
+                  {item.name} {item.qty && `(${item.qty}x)`}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Tabs defaultValue={initialTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -97,10 +132,7 @@ export function ItemSelectionDialog({
                     key={service.id}
                     variant="outline"
                     className="justify-start h-auto p-4 hover:bg-primary/10 hover:border-primary transition-all"
-                    onClick={() => {
-                      handleAddService(service.id);
-                      onOpenChange(false);
-                    }}
+                    onClick={() => handleAddService(service.id)}
                   >
                     <div className="text-left w-full">
                       <div className="font-medium text-sm">{service.name}</div>
@@ -128,10 +160,7 @@ export function ItemSelectionDialog({
                   <button
                     type="button"
                     className="flex-1 text-left"
-                    onClick={() => {
-                      handleAddMedicine(medicine.id);
-                      onOpenChange(false);
-                    }}
+                    onClick={() => handleAddMedicine(medicine.id)}
                   >
                     <div className="font-medium text-sm">{medicine.name}</div>
                     <div className="text-xs text-muted-foreground">
@@ -149,7 +178,6 @@ export function ItemSelectionDialog({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           handleAddMedicine(medicine.id, e.currentTarget);
-                          onOpenChange(false);
                         }
                       }}
                     />
@@ -159,7 +187,6 @@ export function ItemSelectionDialog({
                       onClick={(e) => {
                         const input = document.getElementById(`qty-${medicine.id}`) as HTMLInputElement;
                         handleAddMedicine(medicine.id, input);
-                        onOpenChange(false);
                       }}
                     >
                       <Plus className="h-4 w-4" />
@@ -170,7 +197,7 @@ export function ItemSelectionDialog({
             </div>
           </TabsContent>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
